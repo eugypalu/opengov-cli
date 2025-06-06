@@ -1,3 +1,4 @@
+use crate::functions::wall_clock_to_block_number;
 use crate::*;
 use clap::Parser as ClapParser;
 use std::fs;
@@ -18,9 +19,9 @@ pub(crate) struct ReferendumArgs {
 	#[clap(long = "track", short)]
 	track: String,
 
-	/// Optional: Enact at a particular block number.
+	/// Optional: Enact at a particular block number or wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800)
 	#[clap(long = "at")]
-	at: Option<u32>,
+	at: Option<String>,
 
 	/// Optional: Enact after a given number of blocks.
 	#[clap(long = "after")]
@@ -42,7 +43,7 @@ pub(crate) struct ReferendumArgs {
 // The sub-command's "main" function.
 pub(crate) async fn submit_referendum(prefs: ReferendumArgs) {
 	// Find out what the user wants to do.
-	let proposal_details = parse_inputs(prefs);
+	let proposal_details = parse_inputs(prefs).await;
 	// Generate the calls necessary.
 	let calls = generate_calls(&proposal_details).await;
 	// Tell the user what to do.
@@ -50,7 +51,7 @@ pub(crate) async fn submit_referendum(prefs: ReferendumArgs) {
 }
 
 // Parse the CLI inputs and return a typed struct with all the details needed.
-fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
+async fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 	use DispatchTimeWrapper::*;
 	use NetworkTrack::*;
 	use Output::*;
@@ -103,7 +104,19 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 		(Some(_), Some(_)) => {
 			panic!("\nBoth `At` and `After` dispatch times provided. You can only use one.\n");
 		},
-		(Some(at), None) => At(at),
+		(Some(at), None) => {
+			// Try to parse as block number first
+			if let Ok(block) = at.parse::<u32>() {
+				At(block)
+			} else {
+				// If not a block number, try to parse as wall clock time
+				let block = wall_clock_to_block_number(&at, &prefs.network)
+					.await
+					.expect("Failed to convert wall clock time to block number");
+				println!("\nConverted wall clock time {} to block number {}\n", at, block);
+				At(block)
+			}
+		},
 		(None, Some(after)) => After(after),
 	};
 
