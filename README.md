@@ -44,6 +44,8 @@ Options:
   -t, --track <TRACK>
           Track on which to submit the referendum
       --at <AT>
+          Optional: Enact at a particular block number
+      --at-date <AT_DATE>
           Optional: Enact at a particular wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800)
       --after <AFTER>
           Optional: Enact after a given number of blocks

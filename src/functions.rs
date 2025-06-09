@@ -1,4 +1,5 @@
-use chrono::{DateTime, Duration, Local, NaiveDateTime, TimeZone, Utc};
+use crate::{kusama_relay, polkadot_relay};
+use chrono::{Local, NaiveDateTime, TimeZone, Utc};
 use std::fs;
 use subxt::{OnlineClient, PolkadotConfig};
 
@@ -64,10 +65,17 @@ pub(crate) async fn wall_clock_to_block_number(
 		.map_err(|e| TimeConversionError(format!("Failed to get latest block: {}", e)))?;
 
 	let current_block_number = current_block.number();
-	let current_timestamp = current_block
-		.timestamp()
+	let current_timestamp = api
+		.storage()
+		.at(current_block.hash())
+		.fetch(&match network.to_lowercase().as_str() {
+			"polkadot" => polkadot_relay::storage().timestamp().now(),
+			"kusama" => kusama_relay::storage().timestamp().now(),
+			_ => return Err(TimeConversionError("Invalid network".to_string())),
+		})
 		.await
-		.map_err(|e| TimeConversionError(format!("Failed to get block timestamp: {}", e)))?;
+		.map_err(|e| TimeConversionError(format!("Failed to get block timestamp: {}", e)))?
+		.ok_or_else(|| TimeConversionError("Failed to get timestamp".to_string()))?;
 
 	// Calculate time difference in seconds
 	let target_timestamp = utc_dt.timestamp() as u64;

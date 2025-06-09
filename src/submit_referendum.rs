@@ -19,9 +19,13 @@ pub(crate) struct ReferendumArgs {
 	#[clap(long = "track", short)]
 	track: String,
 
-	/// Optional: Enact at a particular block number or wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800)
+	/// Optional: Enact at a particular block number.
 	#[clap(long = "at")]
-	at: Option<String>,
+	at: Option<u32>,
+
+	/// Optional: Enact at a particular wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800)
+	#[clap(long = "at-date")]
+	at_date: Option<String>,
 
 	/// Optional: Enact after a given number of blocks.
 	#[clap(long = "after")]
@@ -95,29 +99,27 @@ async fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 		_ => panic!("`network` must be `polkadot` or `kusama`"),
 	};
 
-	let dispatch = match (prefs.at, prefs.after) {
-		(None, None) => {
+	let dispatch = match (prefs.at, prefs.at_date, prefs.after) {
+		(None, None, None) => {
 			println!("\nNo enactment time specified. Defaulting to `After(10)`.");
-			println!("Specify an enactment time with `--at <block>` or `--after <blocks>`.\n");
+			println!("Specify an enactment time with `--at <block>`, `--at-date <time>` or `--after <blocks>`.\n");
 			After(10)
 		},
-		(Some(_), Some(_)) => {
+		(Some(_), Some(_), _) => {
+			panic!("\nBoth `--at` and `--at-date` provided. You can only use one.\n");
+		},
+		(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
 			panic!("\nBoth `At` and `After` dispatch times provided. You can only use one.\n");
 		},
-		(Some(at), None) => {
-			// Try to parse as block number first
-			if let Ok(block) = at.parse::<u32>() {
-				At(block)
-			} else {
-				// If not a block number, try to parse as wall clock time
-				let block = wall_clock_to_block_number(&at, &prefs.network)
-					.await
-					.expect("Failed to convert wall clock time to block number");
-				println!("\nConverted wall clock time {} to block number {}\n", at, block);
-				At(block)
-			}
+		(Some(at), None, None) => At(at),
+		(None, Some(at_date), None) => {
+			let block = wall_clock_to_block_number(&at_date, &prefs.network)
+				.await
+				.expect("Failed to convert wall clock time to block number");
+			println!("\nConverted wall clock time {} to block number {}\n", at_date, block);
+			At(block)
 		},
-		(None, Some(after)) => After(after),
+		(None, None, Some(after)) => After(after),
 	};
 
 	let output_len_limit = if let Some(input) = prefs.output_len_limit { input } else { 1_000 };
