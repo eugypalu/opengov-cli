@@ -127,7 +127,8 @@ impl Network {
 			PolkadotAssetHub
 				| PolkadotCollectives
 				| PolkadotBridgeHub
-				| PolkadotPeople | PolkadotCoretime
+				| PolkadotPeople
+				| PolkadotCoretime
 		)
 	}
 }
