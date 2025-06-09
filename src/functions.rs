@@ -78,7 +78,7 @@ pub(crate) async fn wall_clock_to_block_number(
 		.ok_or_else(|| TimeConversionError("Failed to get timestamp".to_string()))?;
 
 	// Calculate time difference in seconds
-	let target_timestamp = utc_dt.timestamp() as u64;
+	let target_timestamp = utc_dt.timestamp_millis() as u64;
 	let time_diff = if target_timestamp > current_timestamp {
 		target_timestamp - current_timestamp
 	} else {
