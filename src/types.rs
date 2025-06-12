@@ -72,6 +72,45 @@ pub(super) use polkadot_people::runtime_types::people_polkadot_runtime::RuntimeC
 pub mod polkadot_coretime {}
 pub(super) use polkadot_coretime::runtime_types::coretime_polkadot_runtime::RuntimeCall as PolkadotCoretimeRuntimeCall;
 
+// Westend Chains -----------------------------------------------------------------------------------
+
+#[subxt::subxt(
+	runtime_metadata_insecure_url = "wss://westend-rpc.polkadot.io:443",
+	derive_for_all_types = "PartialEq, Clone"
+)]
+pub mod westend_relay {}
+pub(super) use westend_relay::runtime_types::westend_runtime::{
+	governance::origins::pallet_custom_origins::Origin as WestendOpenGovOrigin,
+	OriginCaller as WestendOriginCaller, RuntimeCall as WestendRuntimeCall,
+};
+
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-asset-hub-rpc.polkadot.io:443")]
+pub mod westend_asset_hub {}
+pub(super) use westend_asset_hub::runtime_types::asset_hub_westend_runtime::RuntimeCall as WestendAssetHubRuntimeCall;
+
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-bridge-hub-rpc.polkadot.io:443")]
+pub mod westend_bridge_hub {}
+pub(super) use westend_bridge_hub::runtime_types::bridge_hub_westend_runtime::RuntimeCall as WestendBridgeHubRuntimeCall;
+
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-collectives-rpc.polkadot.io:443")]
+pub mod westend_collectives {}
+pub(super) use westend_collectives::runtime_types::collectives_westend_runtime::RuntimeCall as WestendCollectivesRuntimeCall;
+
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-people-rpc.polkadot.io:443")]
+pub mod westend_people {}
+pub(super) use westend_people::runtime_types::people_westend_runtime::RuntimeCall as WestendPeopleRuntimeCall;
+
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://westend-coretime-rpc.polkadot.io:443")]
+pub mod westend_coretime {}
+pub(super) use westend_coretime::runtime_types::coretime_westend_runtime::RuntimeCall as WestendCoretimeRuntimeCall;
+
+pub(super) use westend_asset_hub::runtime_types::asset_hub_westend_runtime::{
+	governance::origins::pallet_custom_origins::Origin as WestendAssetHubOpenGovOrigin,
+	OriginCaller as WestendAssetHubOriginCaller,
+};
+
+pub(super) use westend_collectives::runtime_types::collectives_westend_runtime::fellowship::origins::pallet_origins::Origin as WestendFellowshipOrigins;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Network {
 	Kusama,
@@ -86,6 +125,12 @@ pub(super) enum Network {
 	PolkadotBridgeHub,
 	PolkadotPeople,
 	PolkadotCoretime,
+	Westend,
+	WestendAssetHub,
+	WestendBridgeHub,
+	WestendCollectives,
+	WestendPeople,
+	WestendCoretime,
 }
 
 impl Network {
@@ -107,6 +152,13 @@ impl Network {
 			PolkadotCollectives => Ok(1_001),
 			PolkadotPeople => Ok(1_004),
 			PolkadotCoretime => Ok(1_005),
+			// Westend
+			Westend => Err("relay chain"),
+			WestendAssetHub => Ok(1_000),
+			WestendBridgeHub => Ok(1_002),
+			WestendCollectives => Ok(1_001),
+			WestendPeople => Ok(1_004),
+			WestendCoretime => Ok(1_005),
 		}
 	}
 
@@ -128,6 +180,15 @@ impl Network {
 				| PolkadotCollectives
 				| PolkadotBridgeHub
 				| PolkadotPeople | PolkadotCoretime
+		)
+	}
+
+	/// Returns `true` if the network is a Westend _parachain_.
+	pub(super) fn is_westend_para(&self) -> bool {
+		use Network::*;
+		matches!(
+			self,
+			WestendAssetHub | WestendBridgeHub | WestendCollectives | WestendPeople | WestendCoretime
 		)
 	}
 }
@@ -187,6 +248,8 @@ pub(super) enum NetworkTrack {
 	Kusama(KusamaOpenGovOrigin),
 	PolkadotRoot,
 	Polkadot(PolkadotOpenGovOrigin),
+	WestendRoot,
+	Westend(WestendOpenGovOrigin),
 }
 
 // A runtime call wrapped in the network it should execute on.
@@ -203,6 +266,12 @@ pub(super) enum NetworkRuntimeCall {
 	PolkadotBridgeHub(PolkadotBridgeHubRuntimeCall),
 	PolkadotPeople(PolkadotPeopleRuntimeCall),
 	PolkadotCoretime(PolkadotCoretimeRuntimeCall),
+	Westend(WestendRuntimeCall),
+	WestendAssetHub(WestendAssetHubRuntimeCall),
+	WestendBridgeHub(WestendBridgeHubRuntimeCall),
+	WestendCollectives(WestendCollectivesRuntimeCall),
+	WestendPeople(WestendPeopleRuntimeCall),
+	WestendCoretime(WestendCoretimeRuntimeCall),
 }
 
 // How the user would like to see the output of the program.
@@ -251,6 +320,12 @@ impl CallInfo {
 			NetworkRuntimeCall::PolkadotBridgeHub(cc) => (Network::PolkadotBridgeHub, cc.encode()),
 			NetworkRuntimeCall::PolkadotPeople(cc) => (Network::PolkadotPeople, cc.encode()),
 			NetworkRuntimeCall::PolkadotCoretime(cc) => (Network::PolkadotCoretime, cc.encode()),
+			NetworkRuntimeCall::Westend(cc) => (Network::Westend, cc.encode()),
+			NetworkRuntimeCall::WestendAssetHub(cc) => (Network::WestendAssetHub, cc.encode()),
+			NetworkRuntimeCall::WestendBridgeHub(cc) => (Network::WestendBridgeHub, cc.encode()),
+			NetworkRuntimeCall::WestendCollectives(cc) => (Network::WestendCollectives, cc.encode()),
+			NetworkRuntimeCall::WestendPeople(cc) => (Network::WestendPeople, cc.encode()),
+			NetworkRuntimeCall::WestendCoretime(cc) => (Network::WestendCoretime, cc.encode()),
 		};
 		let hash = blake2_256(&encoded);
 		let length: u32 = (encoded.len()).try_into().unwrap();
@@ -451,6 +526,98 @@ impl CallInfo {
 		}
 	}
 
+	// Strip the outer enum and return a Westend Relay `RuntimeCall`.
+	pub(super) fn get_westend_call(&self) -> Result<WestendRuntimeCall, &'static str> {
+		match &self.network {
+			Network::Westend => {
+				let bytes = &self.encoded;
+				Ok(<WestendRuntimeCall as parity_scale_codec::Decode>::decode(&mut &bytes[..])
+					.unwrap())
+			},
+			_ => Err("not a westend call"),
+		}
+	}
+
+	// Strip the outer enum and return a Westend Asset Hub `RuntimeCall`.
+	pub(super) fn get_westend_asset_hub_call(
+		&self,
+	) -> Result<WestendAssetHubRuntimeCall, &'static str> {
+		match &self.network {
+			Network::WestendAssetHub => {
+				let bytes = &self.encoded;
+				Ok(<WestendAssetHubRuntimeCall as parity_scale_codec::Decode>::decode(
+					&mut &bytes[..],
+				)
+				.unwrap())
+			},
+			_ => Err("not a westend asset hub call"),
+		}
+	}
+
+	// Strip the outer enum and return a Westend Bridge Hub `RuntimeCall`.
+	#[allow(dead_code)]
+	pub(super) fn get_westend_bridge_hub_call(
+		&self,
+	) -> Result<WestendBridgeHubRuntimeCall, &'static str> {
+		match &self.network {
+			Network::WestendBridgeHub => {
+				let bytes = &self.encoded;
+				Ok(<WestendBridgeHubRuntimeCall as parity_scale_codec::Decode>::decode(
+					&mut &bytes[..],
+				)
+				.unwrap())
+			},
+			_ => Err("not a westend bridge hub call"),
+		}
+	}
+
+	// Strip the outer enum and return a Westend Collectives `RuntimeCall`.
+	#[allow(dead_code)]
+	pub(super) fn get_westend_collectives_call(
+		&self,
+	) -> Result<WestendCollectivesRuntimeCall, &'static str> {
+		match &self.network {
+			Network::WestendCollectives => {
+				let bytes = &self.encoded;
+				Ok(<WestendCollectivesRuntimeCall as parity_scale_codec::Decode>::decode(
+					&mut &bytes[..],
+				)
+				.unwrap())
+			},
+			_ => Err("not a westend collectives call"),
+		}
+	}
+
+	// Strip the outer enum and return a Westend People `RuntimeCall`.
+	#[allow(dead_code)]
+	pub(super) fn get_westend_people_call(&self) -> Result<WestendPeopleRuntimeCall, &'static str> {
+		match &self.network {
+			Network::WestendPeople => {
+				let bytes = &self.encoded;
+				Ok(<WestendPeopleRuntimeCall as parity_scale_codec::Decode>::decode(&mut &bytes[..])
+					.unwrap())
+			},
+			_ => Err("not a westend people call"),
+		}
+	}
+
+	// Strip the outer enum and return a Westend Coretime `RuntimeCall`.
+	#[allow(dead_code)]
+	pub(super) fn get_westend_coretime_call(
+		&self,
+	) -> Result<WestendCoretimeRuntimeCall, &'static str> {
+		match &self.network {
+			Network::WestendCoretime => {
+				let bytes = &self.encoded;
+				Ok(<WestendCoretimeRuntimeCall as parity_scale_codec::Decode>::decode(
+					&mut &bytes[..],
+				)
+				.unwrap())
+			},
+			_ => Err("not a westend coretime call"),
+		}
+	}
+
 	pub(super) async fn get_transact_weight_needed(
 		&self,
 		network: &Network,
@@ -473,6 +640,12 @@ impl CallInfo {
 			Network::PolkadotBridgeHub => "wss://polkadot-bridge-hub-rpc.polkadot.io:443",
 			Network::PolkadotPeople => "wss://polkadot-people-rpc.polkadot.io:443",
 			Network::PolkadotCoretime => "wss://polkadot-coretime-rpc.polkadot.io:443",
+			Network::Westend => "wss://westend-rpc.polkadot.io:443",
+			Network::WestendAssetHub => "wss://westend-asset-hub-rpc.polkadot.io:443",
+			Network::WestendBridgeHub => "wss://westend-bridge-hub-rpc.polkadot.io:443",
+			Network::WestendCollectives => "wss://westend-collectives-rpc.polkadot.io:443",
+			Network::WestendPeople => "wss://westend-people-rpc.polkadot.io:443",
+			Network::WestendCoretime => "wss://westend-coretime-rpc.polkadot.io:443",
 		};
 
 		let mut args = self.encoded.clone();
@@ -508,6 +681,14 @@ impl CallInfo {
 					let collectives_call =
 						self.get_polkadot_collectives_call().expect("collectives");
 					CallOrHash::Call(NetworkRuntimeCall::PolkadotCollectives(collectives_call))
+				},
+				Network::Westend => {
+					let westend_call = self.get_westend_call().expect("westend");
+					CallOrHash::Call(NetworkRuntimeCall::Westend(westend_call))
+				},
+				Network::WestendAssetHub => {
+					let westend_asset_hub_call = self.get_westend_asset_hub_call().expect("westend asset hub");
+					CallOrHash::Call(NetworkRuntimeCall::WestendAssetHub(westend_asset_hub_call))
 				},
 				_ => panic!("to do"),
 			}

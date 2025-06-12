@@ -6,7 +6,7 @@ use std::path::Path;
 /// Generate a single call that will upgrade a Relay Chain and all of its system parachains.
 #[derive(Debug, ClapParser)]
 pub(crate) struct UpgradeArgs {
-	/// Network on which to submit the referendum. `polkadot` or `kusama`.
+	/// Network on which to submit the referendum. `polkadot`, `kusama`, or `westend`.
 	#[clap(long = "network", short)]
 	pub(crate) network: String,
 
@@ -167,7 +167,29 @@ pub(crate) fn parse_inputs(prefs: UpgradeArgs) -> UpgradeDetails {
 			}
 			Network::Kusama
 		},
-		_ => panic!("`network` must be `polkadot` or `kusama`"),
+		"westend" => {
+			if let Some(v) = relay_version.clone() {
+				networks.push(VersionedNetwork { network: Network::Westend, version: v });
+			}
+			if let Some(v) = asset_hub_version.clone() {
+				networks.push(VersionedNetwork { network: Network::WestendAssetHub, version: v });
+			}
+			if let Some(v) = collectives_version.clone() {
+				networks
+					.push(VersionedNetwork { network: Network::WestendCollectives, version: v });
+			}
+			if let Some(v) = bridge_hub_version.clone() {
+				networks.push(VersionedNetwork { network: Network::WestendBridgeHub, version: v });
+			}
+			if let Some(v) = people_version.clone() {
+				networks.push(VersionedNetwork { network: Network::WestendPeople, version: v });
+			}
+			if let Some(v) = coretime_version.clone() {
+				networks.push(VersionedNetwork { network: Network::WestendCoretime, version: v });
+			}
+			Network::Westend
+		},
+		_ => panic!("`network` must be `polkadot`, `kusama`, or `westend`"),
 	};
 
 	let additional = match prefs.additional {
@@ -177,8 +199,9 @@ pub(crate) fn parse_inputs(prefs: UpgradeArgs) -> UpgradeDetails {
 				Network::Polkadot =>
 					Some(CallInfo::from_bytes(&additional_bytes, Network::Polkadot)),
 				Network::Kusama => Some(CallInfo::from_bytes(&additional_bytes, Network::Kusama)),
+				Network::Westend => Some(CallInfo::from_bytes(&additional_bytes, Network::Westend)),
 				// for now, only support additional on the relay chain
-				_ => panic!("`network` must be `polkadot` or `kusama`"),
+				_ => panic!("`network` must be `polkadot`, `kusama`, or `westend`"),
 			}
 		},
 		None => None,
@@ -259,6 +282,12 @@ async fn download_runtimes(upgrade_details: &UpgradeDetails) {
 			Network::PolkadotBridgeHub => "bridge-hub-polkadot",
 			Network::PolkadotPeople => "people-polkadot",
 			Network::PolkadotCoretime => "coretime-polkadot",
+			Network::Westend => "westend",
+			Network::WestendAssetHub => "asset-hub-westend",
+			Network::WestendBridgeHub => "bridge-hub-westend",
+			Network::WestendCollectives => "collectives-westend",
+			Network::WestendPeople => "people-westend",
+			Network::WestendCoretime => "coretime-westend",
 		};
 		let runtime_version = semver_to_intver(&chain.version);
 		let fname = format!("{}_runtime-v{}.compact.compressed.wasm", chain_name, runtime_version);
@@ -287,7 +316,7 @@ fn generate_authorize_upgrade_calls(upgrade_details: &UpgradeDetails) -> Vec<Cal
 	for chain in &upgrade_details.networks {
 		let runtime_version = semver_to_intver(&chain.version);
 		match chain.network {
-			Network::Kusama | Network::Polkadot => continue, // do relay chain separately
+			Network::Kusama | Network::Polkadot | Network::Westend => continue,
 			Network::KusamaAssetHub => {
 				use kusama_asset_hub::runtime_types::frame_system::pallet::Call;
 				let path = format!(
@@ -458,6 +487,91 @@ fn generate_authorize_upgrade_calls(upgrade_details: &UpgradeDetails) -> Vec<Cal
 				));
 				authorization_calls.push(call);
 			},
+			Network::WestendAssetHub => {
+				use westend_asset_hub::runtime_types::frame_system::pallet::Call;
+				let path = format!(
+					"{}asset-hub-westend_runtime-v{}.compact.compressed.wasm",
+					upgrade_details.directory, runtime_version
+				);
+				let runtime = fs::read(path).expect("Should give a valid file path");
+				let runtime_hash = blake2_256(&runtime);
+				println!("Westend Asset Hub Runtime Hash:   0x{}", hex::encode(runtime_hash));
+
+				let call = CallInfo::from_runtime_call(NetworkRuntimeCall::WestendAssetHub(
+					WestendAssetHubRuntimeCall::System(Call::authorize_upgrade {
+						code_hash: H256(runtime_hash),
+					}),
+				));
+				authorization_calls.push(call);
+			},
+			Network::WestendBridgeHub => {
+				use westend_bridge_hub::runtime_types::frame_system::pallet::Call;
+				let path = format!(
+					"{}bridge-hub-westend_runtime-v{}.compact.compressed.wasm",
+					upgrade_details.directory, runtime_version
+				);
+				let runtime = fs::read(path).expect("Should give a valid file path");
+				let runtime_hash = blake2_256(&runtime);
+				println!("Westend Bridge Hub Runtime Hash:  0x{}", hex::encode(runtime_hash));
+
+				let call = CallInfo::from_runtime_call(NetworkRuntimeCall::WestendBridgeHub(
+					WestendBridgeHubRuntimeCall::System(Call::authorize_upgrade {
+						code_hash: H256(runtime_hash),
+					}),
+				));
+				authorization_calls.push(call);
+			},
+			Network::WestendCollectives => {
+				use westend_collectives::runtime_types::frame_system::pallet::Call;
+				let path = format!(
+					"{}collectives-westend_runtime-v{}.compact.compressed.wasm",
+					upgrade_details.directory, runtime_version
+				);
+				let runtime = fs::read(path).expect("Should give a valid file path");
+				let runtime_hash = blake2_256(&runtime);
+				println!("Westend Collectives Runtime Hash: 0x{}", hex::encode(runtime_hash));
+
+				let call = CallInfo::from_runtime_call(NetworkRuntimeCall::WestendCollectives(
+					WestendCollectivesRuntimeCall::System(Call::authorize_upgrade {
+						code_hash: H256(runtime_hash),
+					}),
+				));
+				authorization_calls.push(call);
+			},
+			Network::WestendPeople => {
+				use westend_people::runtime_types::frame_system::pallet::Call;
+				let path = format!(
+					"{}people-westend_runtime-v{}.compact.compressed.wasm",
+					upgrade_details.directory, runtime_version
+				);
+				let runtime = fs::read(path).expect("Should give a valid file path");
+				let runtime_hash = blake2_256(&runtime);
+				println!("Westend People Runtime Hash:      0x{}", hex::encode(runtime_hash));
+
+				let call = CallInfo::from_runtime_call(NetworkRuntimeCall::WestendPeople(
+					WestendPeopleRuntimeCall::System(Call::authorize_upgrade {
+						code_hash: H256(runtime_hash),
+					}),
+				));
+				authorization_calls.push(call);
+			},
+			Network::WestendCoretime => {
+				use westend_coretime::runtime_types::frame_system::pallet::Call;
+				let path = format!(
+					"{}coretime-westend_runtime-v{}.compact.compressed.wasm",
+					upgrade_details.directory, runtime_version
+				);
+				let runtime = fs::read(path).expect("Should give a valid file path");
+				let runtime_hash = blake2_256(&runtime);
+				println!("Westend Coretime Runtime Hash:    0x{}", hex::encode(runtime_hash));
+
+				let call = CallInfo::from_runtime_call(NetworkRuntimeCall::WestendCoretime(
+					WestendCoretimeRuntimeCall::System(Call::authorize_upgrade {
+						code_hash: H256(runtime_hash),
+					}),
+				));
+				authorization_calls.push(call);
+			},
 		};
 	}
 	authorization_calls
@@ -520,6 +634,31 @@ fn generate_relay_upgrade_call(upgrade_details: &UpgradeDetails) -> Option<CallI
 				)))
 			}
 		},
+		Network::Westend => {
+			use westend_relay::runtime_types::frame_system::pallet::Call as SystemCall;
+
+			let path = format!(
+				"{}westend_runtime-v{}.compact.compressed.wasm",
+				upgrade_details.directory, runtime_version
+			);
+			let runtime = fs::read(path).expect("Should give a valid file path");
+			let runtime_hash = blake2_256(&runtime);
+			println!("Westend Relay Chain Runtime Hash: 0x{}", hex::encode(runtime_hash));
+
+			if !upgrade_details.set_relay_directly {
+				// authorize upgrade
+				Some(CallInfo::from_runtime_call(NetworkRuntimeCall::Westend(
+					WestendRuntimeCall::System(SystemCall::authorize_upgrade {
+						code_hash: H256(runtime_hash),
+					}),
+				)))
+			} else {
+				// set code directly
+				Some(CallInfo::from_runtime_call(NetworkRuntimeCall::Westend(
+					WestendRuntimeCall::System(SystemCall::set_code { code: runtime }),
+				)))
+			}
+		},
 		_ => panic!("Not a Relay Chain"),
 	}
 }
@@ -538,6 +677,9 @@ async fn construct_batch(
 			construct_kusama_batch(relay_call, para_calls, upgrade_details.additional.clone()).await,
 		Network::Polkadot =>
 			construct_polkadot_batch(relay_call, para_calls, upgrade_details.additional.clone())
+				.await,
+		Network::Westend =>
+			construct_westend_batch(relay_call, para_calls, upgrade_details.additional.clone())
 				.await,
 		_ => panic!("Not a Relay Chain"),
 	}
@@ -601,6 +743,37 @@ async fn construct_polkadot_batch(
 		1 => CallInfo::from_runtime_call(NetworkRuntimeCall::Polkadot(batch_calls[0].clone())),
 		_ => CallInfo::from_runtime_call(NetworkRuntimeCall::Polkadot(
 			PolkadotRuntimeCall::Utility(UtilityCall::force_batch { calls: batch_calls }),
+		)),
+	}
+}
+
+// Construct the batch needed on Westend.
+async fn construct_westend_batch(
+	relay_call: Option<CallInfo>,
+	para_calls: Vec<CallInfo>,
+	additional: Option<CallInfo>,
+) -> CallInfo {
+	use westend_relay::runtime_types::pallet_utility::pallet::Call as UtilityCall;
+
+	let mut batch_calls = Vec::new();
+	for auth in para_calls {
+		if auth.network.is_westend_para() {
+			let send_auth = send_as_superuser_from_westend(&auth).await;
+			batch_calls.push(send_auth);
+		}
+	}
+	if let Some(a) = additional {
+		batch_calls.push(a.get_westend_call().expect("westend call"))
+	}
+	// Relay set code goes last
+	if let Some(rc) = relay_call {
+		batch_calls.push(rc.get_westend_call().expect("westend call"));
+	}
+	match &batch_calls.len() {
+		0 => panic!("no calls"),
+		1 => CallInfo::from_runtime_call(NetworkRuntimeCall::Westend(batch_calls[0].clone())),
+		_ => CallInfo::from_runtime_call(NetworkRuntimeCall::Westend(
+			WestendRuntimeCall::Utility(UtilityCall::force_batch { calls: batch_calls }),
 		)),
 	}
 }
@@ -679,6 +852,43 @@ async fn send_as_superuser_from_polkadot(auth: &CallInfo) -> PolkadotRuntimeCall
 	})
 }
 
+// Take a call, which includes its intended destination, and wrap it in XCM instructions to `send`
+// it from the Westend Relay Chain, with `Root` origin, and have it execute on its destination.
+async fn send_as_superuser_from_westend(auth: &CallInfo) -> WestendRuntimeCall {
+	use westend_relay::runtime_types::{
+		pallet_xcm::pallet::Call as XcmCall,
+		sp_weights::weight_v2::Weight as WestendWeight,
+		staging_xcm::v4::{
+			junction::Junction::Parachain, junctions::Junctions::X1, location::Location,
+			Instruction, Xcm,
+		},
+		xcm::{
+			double_encoded::DoubleEncoded, v3::OriginKind, v3::WeightLimit, VersionedLocation,
+			VersionedXcm::V4,
+		},
+	};
+
+	let (ref_time, proof_size) = get_weight(auth).await;
+	let para_id = auth.network.get_para_id().unwrap();
+	WestendRuntimeCall::XcmPallet(XcmCall::send {
+		dest: Box::new(VersionedLocation::V4(Location {
+			parents: 0,
+			interior: X1([Parachain(para_id)]),
+		})),
+		message: Box::new(V4(Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				require_weight_at_most: WestendWeight { ref_time, proof_size },
+				call: DoubleEncoded { encoded: auth.encoded.clone() },
+			},
+		]))),
+	})
+}
+
 // Get the weight needed to successfully `Transact` on a foreign chain.
 async fn get_weight(call: &CallInfo) -> (u64, u64) {
 	// Do some weight calculation for execution of Transact on a parachain.
@@ -713,6 +923,7 @@ fn write_batch(upgrade_details: &UpgradeDetails, batch: CallInfo) {
 	let network = match upgrade_details.relay {
 		Network::Kusama => "kusama",
 		Network::Polkadot => "polkadot",
+		Network::Westend => "westend",
 		_ => panic!("not a relay network"),
 	};
 	println!("\nopengov-cli submit-referendum \\");
