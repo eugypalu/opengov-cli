@@ -1,5 +1,7 @@
 use crate::*;
 use clap::Parser as ClapParser;
+use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -236,15 +238,124 @@ fn semver_to_intver(semver: &str) -> String {
 	format!("{}{:0>3}{:0>3}", major, minor, patch)
 }
 
-// Fetch all the runtime Wasm blobs from a Fellowship release.
-async fn download_runtimes(upgrade_details: &UpgradeDetails) {
-	// Relay Form
-	// https://github.com/polkadot-fellows/runtimes/releases/download/v1.0.0/polkadot_runtime-v1000000.compact.compressed.wasm
-	//
-	// Parachains Form
-	// https://github.com/polkadot-fellows/runtimes/releases/download/v1.0.0/asset_hub_kusama_runtime-v1000000.compact.compressed.wasm
+struct ReleaseInfo {
+	notes: String,
+	url: String,
+	assets: HashMap<String, String>, // Map of asset name to download URL
+}
 
-	println!("\nDownloading runtimes.\n");
+// fetch release info from GitHub API
+async fn fetch_release_info(version: &str) -> Result<ReleaseInfo, Box<dyn std::error::Error>> {
+	let client = reqwest::Client::new();
+	let url = format!(
+		"https://api.github.com/repos/polkadot-fellows/runtimes/releases/tags/v{}",
+		version
+	);
+
+	let response = client.get(&url).header("User-Agent", "opengov-cli").send().await?;
+
+	if !response.status().is_success() {
+		return Err(format!("Failed to fetch release info: {}", response.status()).into());
+	}
+
+	let release: Value = response.json().await?;
+
+	// Extract release notes and URL
+	let notes = release["body"].as_str().unwrap_or("No release notes available").to_string();
+	let url = release["html_url"].as_str().unwrap_or("").to_string();
+
+	// Extract asset information
+	let mut assets = HashMap::new();
+	if let Some(assets_array) = release["assets"].as_array() {
+		for asset in assets_array {
+			if let Some(name) = asset["name"].as_str() {
+				if let Some(download_url) = asset["browser_download_url"].as_str() {
+					assets.insert(name.to_string(), download_url.to_string());
+				}
+			}
+		}
+	}
+
+	Ok(ReleaseInfo { notes, url, assets })
+}
+
+async fn download_runtimes(upgrade_details: &UpgradeDetails) {
+	println!("\nFetching release information and downloading runtimes.\n");
+
+	// Fetch release info for the relay version
+	if let Some(relay_version) = &upgrade_details.relay_version {
+		match fetch_release_info(relay_version).await {
+			Ok(release_info) => {
+				println!("Release Notes:\n{}", release_info.notes);
+				println!("\nRelease URL: {}", release_info.url);
+
+				let mut found_any_hash = false;
+
+				// Download and verify each runtime
+				for chain in &upgrade_details.networks {
+					let chain_name = match chain.network {
+						Network::Kusama => "kusama",
+						Network::Polkadot => "polkadot",
+						Network::KusamaAssetHub => "asset-hub-kusama",
+						Network::KusamaBridgeHub => "bridge-hub-kusama",
+						Network::KusamaPeople => "people-kusama",
+						Network::KusamaCoretime => "coretime-kusama",
+						Network::KusamaEncointer => "encointer-kusama",
+						Network::PolkadotAssetHub => "asset-hub-polkadot",
+						Network::PolkadotCollectives => "collectives-polkadot",
+						Network::PolkadotBridgeHub => "bridge-hub-polkadot",
+						Network::PolkadotPeople => "people-polkadot",
+						Network::PolkadotCoretime => "coretime-polkadot",
+					};
+
+					let runtime_version = semver_to_intver(&chain.version);
+					let fname = format!(
+						"{}_runtime-v{}.compact.compressed.wasm",
+						chain_name, runtime_version
+					);
+
+					// Get the download URL from release assets
+					if let Some(download_url) = release_info.assets.get(&fname) {
+						println!("Downloading... {}", fname);
+						let response =
+							reqwest::get(download_url).await.expect("Failed to download runtime");
+						let runtime = response.bytes().await.expect("Failed to get runtime bytes");
+
+						// Calculate hash of downloaded file
+						let runtime_hash = blake2_256(&runtime);
+						let hash_hex = hex::encode(runtime_hash);
+
+						// Look for hash in release notes
+						if release_info.notes.contains(&hash_hex) {
+							println!("✓ Hash verified: 0x{}, {}", hash_hex, fname);
+							found_any_hash = true;
+						}
+
+						// Save the runtime file
+						let path_name = format!("{}{}", upgrade_details.directory, fname);
+						fs::write(path_name, runtime).expect("Failed to write runtime file");
+					}
+				}
+
+				if !found_any_hash {
+					panic!("No hashes found in release notes");
+				}
+			},
+			Err(e) => {
+				println!("⚠ Failed to fetch release info: {}", e);
+				// Fallback to original download behavior
+				download_runtimes_fallback(upgrade_details).await;
+			},
+		}
+	} else {
+		// If no relay version specified, use fallback
+		download_runtimes_fallback(upgrade_details).await;
+	}
+}
+
+// Original download_runtimes function renamed to fallback
+async fn download_runtimes_fallback(upgrade_details: &UpgradeDetails) {
+	println!("\nDownloading runtimes (fallback mode).\n");
 	for chain in &upgrade_details.networks {
 		let chain_name = match chain.network {
 			Network::Kusama => "kusama",
@@ -268,15 +379,12 @@ async fn download_runtimes(upgrade_details: &UpgradeDetails) {
 			&chain.version, fname
 		);
 
-		let download_url = download_url.as_str();
+		println!("Downloading... {}", fname);
+		let response =
+			reqwest::get(download_url.as_str()).await.expect("Failed to download runtime");
+		let runtime = response.bytes().await.expect("Failed to get runtime bytes");
 		let path_name = format!("{}{}", upgrade_details.directory, fname);
-		println!("Downloading... {}", fname.as_str());
-		let response = reqwest::get(download_url).await.expect("we need files to work");
-		let runtime = response.bytes().await.expect("need bytes");
-		// todo: we could actually just hash the file, mutate UpgradeDetails, and not write it.
-		// saving it may be more convenient anyway though, since someone needs to upload it after
-		// the referendum enacts.
-		fs::write(path_name, runtime).expect("we can write");
+		fs::write(path_name, runtime).expect("Failed to write runtime file");
 	}
 }
 
