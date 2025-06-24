@@ -1,9 +1,9 @@
 use crate::get_proposal_bytes;
 use crate::polkadot_relay::runtime_types::frame_system::pallet::Call as PolkadotRelaySystemCall;
 use crate::{
-	build_upgrade, submit_referendum::generate_calls, CallInfo, CallOrHash, KusamaOpenGovOrigin,
-	Network, NetworkRuntimeCall, PolkadotOpenGovOrigin, PolkadotRuntimeCall, ProposalDetails,
-	UpgradeArgs, VersionedNetwork, Weight,
+	CallInfo, CallOrHash, KusamaOpenGovOrigin, Network, NetworkRuntimeCall, PolkadotOpenGovOrigin,
+	PolkadotRuntimeCall, ProposalDetails, UpgradeArgs, VersionedNetwork, Weight, build_upgrade,
+	submit_referendum::generate_calls,
 };
 
 fn polkadot_whitelist_remark_user_input() -> ProposalDetails {
