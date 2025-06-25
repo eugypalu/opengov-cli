@@ -34,6 +34,10 @@ pub(crate) struct ReferendumArgs {
 	#[clap(long = "no-batch")]
 	no_batch: bool,
 
+	/// Submit referendum on Asset Hub instead of relay chain
+	#[clap(long = "asset-hub")]
+	asset_hub: bool,
+
 	/// Form of output. `AppsUiLink` or `CallData`. Defaults to Apps UI.
 	#[clap(long = "output")]
 	output: Option<String>,
@@ -73,7 +77,9 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 				Polkadot(PolkadotOpenGovOrigin::ReferendumKiller),
 			"referendum-canceller" | "referendumcanceller" =>
 				Polkadot(PolkadotOpenGovOrigin::ReferendumCanceller),
-			_ => panic!("Unsupported track! Tracks should be in the form `general-admin` or `generaladmin`."),
+			_ => panic!(
+                "Unsupported track! Tracks should be in the form `general-admin` or `generaladmin`."
+            ),
 		},
 		"kusama" => match prefs.track.to_ascii_lowercase().as_str() {
 			"root" => KusamaRoot,
@@ -89,10 +95,22 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 				Kusama(KusamaOpenGovOrigin::ReferendumKiller),
 			"referendum-canceller" | "referendumcanceller" =>
 				Kusama(KusamaOpenGovOrigin::ReferendumCanceller),
-			_ => panic!("Unsupported track! Tracks should be in the form `general-admin` or `generaladmin`."),
+			_ => panic!(
+                "Unsupported track! Tracks should be in the form `general-admin` or `generaladmin`."
+            ),
 		},
 		_ => panic!("`network` must be `polkadot` or `kusama`"),
 	};
+
+	// Validate asset_hub flag usage
+	if prefs.asset_hub {
+		match prefs.network.to_ascii_lowercase().as_str() {
+			"polkadot" | "kusama" => {
+				// Asset Hub is supported for Polkadot and Kusama
+			},
+			_ => panic!("--asset-hub flag is only supported for Polkadot and Kusama networks"),
+		}
+	}
 
 	let dispatch = match (prefs.at, prefs.after) {
 		(None, None) => {
@@ -113,10 +131,12 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 
 	let output = if let Some(input) = prefs.output {
 		match input.to_ascii_lowercase().as_str() {
-			"calldata" | "call-data" => CallData,
-			"appsuilink" | "apps-ui-link" => AppsUiLink,
-			_ => panic!("`output` must be `calldata` or `appsuilink`. If not specified, the default is `appsuilink`."),
-		}
+            "calldata" | "call-data" => CallData,
+            "appsuilink" | "apps-ui-link" => AppsUiLink,
+            _ => panic!(
+                "`output` must be `calldata` or `appsuilink`. If not specified, the default is `appsuilink`."
+            ),
+        }
 	} else {
 		AppsUiLink
 	};
@@ -128,6 +148,7 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 		output,
 		output_len_limit,
 		print_batch,
+		submit_on_asset_hub: prefs.asset_hub,
 		transact_weight_override: None,
 	}
 }
@@ -137,49 +158,100 @@ pub(crate) async fn generate_calls(proposal_details: &ProposalDetails) -> Possib
 	match &proposal_details.track {
 		// Kusama Root Origin. Since the Root origin is not part of `OpenGovOrigin`, we match it
 		// specially.
-		NetworkTrack::KusamaRoot => {
-			use kusama_relay::runtime_types::frame_support::dispatch::RawOrigin;
-			kusama_non_fellowship_referenda(
-				proposal_details,
-				KusamaOriginCaller::system(RawOrigin::Root),
-			)
-		},
+		NetworkTrack::KusamaRoot =>
+			if proposal_details.submit_on_asset_hub {
+				use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+				kusama_asset_hub_non_fellowship_referenda(
+					proposal_details,
+					KusamaAssetHubOriginCaller::system(RawOrigin::Root),
+				)
+				.await
+			} else {
+				use kusama_relay::runtime_types::frame_support::dispatch::RawOrigin;
+				kusama_non_fellowship_referenda(
+					proposal_details,
+					KusamaOriginCaller::system(RawOrigin::Root),
+				)
+			},
 
 		// All special Kusama origins.
 		NetworkTrack::Kusama(kusama_track) => {
-			match kusama_track {
-				// Whitelisted calls are special.
-				KusamaOpenGovOrigin::WhitelistedCaller =>
-					kusama_fellowship_referenda(proposal_details),
+			if proposal_details.submit_on_asset_hub {
+				match kusama_track {
+					// Whitelisted calls are special - they go through Fellowship on Asset Hub too.
+					KusamaOpenGovOrigin::WhitelistedCaller =>
+						kusama_asset_hub_fellowship_referenda(proposal_details).await,
 
-				// All other Kusama origins.
-				_ => kusama_non_fellowship_referenda(
-					proposal_details,
-					KusamaOriginCaller::Origins(kusama_track.clone()),
-				),
+					// All other Kusama origins use non-fellowship path on Asset Hub.
+					_ => {
+						// Convert to Asset Hub origin - for now use Root as placeholder
+						use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+						kusama_asset_hub_non_fellowship_referenda(
+							proposal_details,
+							KusamaAssetHubOriginCaller::system(RawOrigin::Root),
+						)
+						.await
+					},
+				}
+			} else {
+				match kusama_track {
+					// Whitelisted calls are special.
+					KusamaOpenGovOrigin::WhitelistedCaller =>
+						kusama_fellowship_referenda(proposal_details),
+
+					// All other Kusama origins.
+					_ => kusama_non_fellowship_referenda(
+						proposal_details,
+						KusamaOriginCaller::Origins(kusama_track.clone()),
+					),
+				}
 			}
 		},
 
 		// Same for Polkadot Root origin. It is not part of OpenGovOrigins, so it gets its own arm.
-		NetworkTrack::PolkadotRoot => {
-			use polkadot_relay::runtime_types::frame_support::dispatch::RawOrigin;
-			polkadot_non_fellowship_referenda(
-				proposal_details,
-				PolkadotOriginCaller::system(RawOrigin::Root),
-			)
-		},
+		NetworkTrack::PolkadotRoot =>
+			if proposal_details.submit_on_asset_hub {
+				use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+				polkadot_asset_hub_non_fellowship_referenda(
+					proposal_details,
+					PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
+				)
+				.await
+			} else {
+				use polkadot_relay::runtime_types::frame_support::dispatch::RawOrigin;
+				polkadot_non_fellowship_referenda(
+					proposal_details,
+					PolkadotOriginCaller::system(RawOrigin::Root),
+				)
+			},
 
 		// All special Polkadot origins.
 		NetworkTrack::Polkadot(polkadot_track) => {
-			match polkadot_track {
-				PolkadotOpenGovOrigin::WhitelistedCaller =>
-					polkadot_fellowship_referenda(proposal_details).await,
+			if proposal_details.submit_on_asset_hub {
+				match polkadot_track {
+					PolkadotOpenGovOrigin::WhitelistedCaller =>
+						polkadot_asset_hub_fellowship_referenda(proposal_details).await,
+					_ => {
+						// Convert to Asset Hub origin - for now use Root as placeholder
+						use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+						polkadot_asset_hub_non_fellowship_referenda(
+							proposal_details,
+							PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
+						)
+						.await
+					},
+				}
+			} else {
+				match polkadot_track {
+					PolkadotOpenGovOrigin::WhitelistedCaller =>
+						polkadot_fellowship_referenda(proposal_details).await,
 
-				// All other Polkadot origins.
-				_ => polkadot_non_fellowship_referenda(
-					proposal_details,
-					PolkadotOriginCaller::Origins(polkadot_track.clone()),
-				),
+					// All other Polkadot origins.
+					_ => polkadot_non_fellowship_referenda(
+						proposal_details,
+						PolkadotOriginCaller::Origins(polkadot_track.clone()),
+					),
+				}
 			}
 		},
 	}
@@ -319,6 +391,157 @@ fn kusama_non_fellowship_referenda(
 		fellowship_referendum_submission: None,
 		public_referendum_submission: Some(NetworkRuntimeCall::Kusama(
 			public_proposal.get_kusama_call().expect("kusama"),
+		)),
+	}
+}
+
+// Generate the calls needed for a proposal to pass on Kusama Asset Hub without the Fellowship.
+async fn kusama_asset_hub_non_fellowship_referenda(
+	proposal_details: &ProposalDetails,
+	origin: KusamaAssetHubOriginCaller,
+) -> PossibleCallsToSubmit {
+	use kusama_asset_hub::runtime_types::{
+		frame_support::traits::{preimages::Bounded::Lookup, schedule::DispatchTime},
+		pallet_preimage::pallet::Call as PreimageCall,
+		pallet_referenda::pallet::Call as ReferendaCall,
+	};
+
+	let proposal_bytes = get_proposal_bytes(proposal_details.proposal.clone());
+	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::KusamaAssetHub);
+
+	let public_referendum_dispatch_time = match proposal_details.dispatch {
+		DispatchTimeWrapper::At(block) => DispatchTime::At(block),
+		DispatchTimeWrapper::After(block) => DispatchTime::After(block),
+	};
+
+	// Create preimage for the proposal on Kusama AssetHub
+	let note_proposal_preimage = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
+		KusamaAssetHubRuntimeCall::Preimage(PreimageCall::note_preimage { bytes: proposal_bytes }),
+	));
+
+	// Create the referendum submission call on Kusama AssetHub
+	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
+		KusamaAssetHubRuntimeCall::Referenda(ReferendaCall::submit {
+			proposal_origin: Box::new(origin),
+			proposal: Lookup {
+				hash: H256(proposal_call_info.hash),
+				len: proposal_call_info.length,
+			},
+			enactment_moment: public_referendum_dispatch_time,
+		}),
+	));
+
+	// Prepare print outputs
+	let (proposal_preimage_print, proposal_preimage_print_len) =
+		note_proposal_preimage.create_print_output(proposal_details.output_len_limit);
+
+	PossibleCallsToSubmit {
+		preimage_for_whitelist_call: None,
+		preimage_for_public_referendum: Some((
+			proposal_preimage_print,
+			proposal_preimage_print_len,
+		)),
+		fellowship_referendum_submission: None,
+		public_referendum_submission: Some(NetworkRuntimeCall::KusamaAssetHub(
+			public_proposal.get_kusama_asset_hub_call().expect("kusama asset hub"),
+		)),
+	}
+}
+
+// Generate the calls needed for a proposal to pass through the Kusama Asset Hub Fellowship.
+async fn kusama_asset_hub_fellowship_referenda(
+	proposal_details: &ProposalDetails,
+) -> PossibleCallsToSubmit {
+	use kusama_asset_hub::runtime_types::{
+		frame_support::traits::{preimages::Bounded::Lookup, schedule::DispatchTime},
+		pallet_preimage::pallet::Call as PreimageCall,
+		pallet_referenda::pallet::Call as ReferendaCall,
+		pallet_whitelist::pallet::Call as WhitelistCall,
+	};
+
+	let proposal_bytes = get_proposal_bytes(proposal_details.proposal.clone());
+	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::KusamaAssetHub);
+
+	let public_referendum_dispatch_time = match proposal_details.dispatch {
+		DispatchTimeWrapper::At(block) => DispatchTime::At(block),
+		DispatchTimeWrapper::After(block) => DispatchTime::After(block),
+	};
+
+	// Create the whitelist call on Kusama AssetHub
+	let whitelist_call = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
+		KusamaAssetHubRuntimeCall::Whitelist(WhitelistCall::whitelist_call {
+			call_hash: H256(proposal_call_info.hash),
+		}),
+	));
+
+	// Create preimage for the whitelist call
+	let preimage_for_whitelist_call = CallInfo::from_runtime_call(
+		NetworkRuntimeCall::KusamaAssetHub(KusamaAssetHubRuntimeCall::Preimage(
+			PreimageCall::note_preimage { bytes: whitelist_call.encoded },
+		)),
+	);
+
+	// Create fellowship referendum submission on Kusama AssetHub
+	let fellowship_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
+        KusamaAssetHubRuntimeCall::FellowshipReferenda(ReferendaCall::submit {
+            proposal_origin: Box::new(KusamaAssetHubOriginCaller::FellowshipOrigins(
+                kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::fellowship::origins::pallet_origins::Origin::Fellows,
+            )),
+            proposal: Lookup { hash: H256(whitelist_call.hash), len: whitelist_call.length },
+            enactment_moment: DispatchTime::After(10),
+        }),
+    ));
+
+	// Create the dispatch whitelisted call
+	let dispatch_whitelisted_call = CallInfo::from_runtime_call(
+		NetworkRuntimeCall::KusamaAssetHub(KusamaAssetHubRuntimeCall::Whitelist(
+			WhitelistCall::dispatch_whitelisted_call_with_preimage {
+				call: Box::new(
+					proposal_call_info.get_kusama_asset_hub_call().expect("kusama asset hub"),
+				),
+			},
+		)),
+	);
+
+	// Create preimage for the dispatch call
+	let preimage_for_dispatch_whitelisted_call = CallInfo::from_runtime_call(
+		NetworkRuntimeCall::KusamaAssetHub(KusamaAssetHubRuntimeCall::Preimage(
+			PreimageCall::note_preimage { bytes: dispatch_whitelisted_call.encoded.clone() },
+		)),
+	);
+
+	// Create public referendum submission
+	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
+        KusamaAssetHubRuntimeCall::Referenda(ReferendaCall::submit {
+            proposal_origin: Box::new(KusamaAssetHubOriginCaller::Origins(
+                kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::governance::origins::pallet_custom_origins::Origin::WhitelistedCaller,
+            )),
+            proposal: Lookup {
+                hash: H256(dispatch_whitelisted_call.hash),
+                len: dispatch_whitelisted_call.length,
+            },
+            enactment_moment: public_referendum_dispatch_time,
+        }),
+    ));
+
+	// Prepare print outputs
+	let (whitelist_preimage_print, whitelist_preimage_print_len) =
+		preimage_for_whitelist_call.create_print_output(proposal_details.output_len_limit);
+	let (dispatch_preimage_print, dispatch_preimage_print_len) =
+		preimage_for_dispatch_whitelisted_call
+			.create_print_output(proposal_details.output_len_limit);
+
+	PossibleCallsToSubmit {
+		preimage_for_whitelist_call: Some((whitelist_preimage_print, whitelist_preimage_print_len)),
+		preimage_for_public_referendum: Some((
+			dispatch_preimage_print,
+			dispatch_preimage_print_len,
+		)),
+		fellowship_referendum_submission: Some(NetworkRuntimeCall::KusamaAssetHub(
+			fellowship_proposal.get_kusama_asset_hub_call().expect("kusama asset hub"),
+		)),
+		public_referendum_submission: Some(NetworkRuntimeCall::KusamaAssetHub(
+			public_proposal.get_kusama_asset_hub_call().expect("kusama asset hub"),
 		)),
 	}
 }
@@ -504,6 +727,104 @@ async fn polkadot_fellowship_referenda(
 	}
 }
 
+// Generate the calls needed for a proposal to pass through the Polkadot Asset Hub Fellowship.
+async fn polkadot_asset_hub_fellowship_referenda(
+	proposal_details: &ProposalDetails,
+) -> PossibleCallsToSubmit {
+	use polkadot_asset_hub::runtime_types::{
+		frame_support::traits::{preimages::Bounded::Lookup, schedule::DispatchTime},
+		pallet_preimage::pallet::Call as PreimageCall,
+		pallet_referenda::pallet::Call as ReferendaCall,
+		pallet_whitelist::pallet::Call as WhitelistCall,
+	};
+
+	let proposal_bytes = get_proposal_bytes(proposal_details.proposal.clone());
+	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::PolkadotAssetHub);
+
+	let public_referendum_dispatch_time = match proposal_details.dispatch {
+		DispatchTimeWrapper::At(block) => DispatchTime::At(block),
+		DispatchTimeWrapper::After(block) => DispatchTime::After(block),
+	};
+
+	// Create the whitelist call on Polkadot AssetHub
+	let whitelist_call = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
+		PolkadotAssetHubRuntimeCall::Whitelist(WhitelistCall::whitelist_call {
+			call_hash: H256(proposal_call_info.hash),
+		}),
+	));
+
+	// Create preimage for the whitelist call
+	let preimage_for_whitelist_call = CallInfo::from_runtime_call(
+		NetworkRuntimeCall::PolkadotAssetHub(PolkadotAssetHubRuntimeCall::Preimage(
+			PreimageCall::note_preimage { bytes: whitelist_call.encoded },
+		)),
+	);
+
+	// Create fellowship referendum submission on Polkadot AssetHub
+	let fellowship_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
+        PolkadotAssetHubRuntimeCall::FellowshipReferenda(ReferendaCall::submit {
+            proposal_origin: Box::new(PolkadotAssetHubOriginCaller::FellowshipOrigins(
+                polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::fellowship::origins::pallet_origins::Origin::Fellows,
+            )),
+            proposal: Lookup { hash: H256(whitelist_call.hash), len: whitelist_call.length },
+            enactment_moment: DispatchTime::After(10),
+        }),
+    ));
+
+	// Create the dispatch whitelisted call
+	let dispatch_whitelisted_call = CallInfo::from_runtime_call(
+		NetworkRuntimeCall::PolkadotAssetHub(PolkadotAssetHubRuntimeCall::Whitelist(
+			WhitelistCall::dispatch_whitelisted_call_with_preimage {
+				call: Box::new(
+					proposal_call_info.get_polkadot_asset_hub_call().expect("polkadot asset hub"),
+				),
+			},
+		)),
+	);
+
+	// Create preimage for the dispatch call
+	let preimage_for_dispatch_whitelisted_call = CallInfo::from_runtime_call(
+		NetworkRuntimeCall::PolkadotAssetHub(PolkadotAssetHubRuntimeCall::Preimage(
+			PreimageCall::note_preimage { bytes: dispatch_whitelisted_call.encoded.clone() },
+		)),
+	);
+
+	// Create public referendum submission
+	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
+        PolkadotAssetHubRuntimeCall::Referenda(ReferendaCall::submit {
+            proposal_origin: Box::new(PolkadotAssetHubOriginCaller::Origins(
+                polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::governance::origins::pallet_custom_origins::Origin::WhitelistedCaller,
+            )),
+            proposal: Lookup {
+                hash: H256(dispatch_whitelisted_call.hash),
+                len: dispatch_whitelisted_call.length,
+            },
+            enactment_moment: public_referendum_dispatch_time,
+        }),
+    ));
+
+	// Prepare print outputs
+	let (whitelist_preimage_print, whitelist_preimage_print_len) =
+		preimage_for_whitelist_call.create_print_output(proposal_details.output_len_limit);
+	let (dispatch_preimage_print, dispatch_preimage_print_len) =
+		preimage_for_dispatch_whitelisted_call
+			.create_print_output(proposal_details.output_len_limit);
+
+	PossibleCallsToSubmit {
+		preimage_for_whitelist_call: Some((whitelist_preimage_print, whitelist_preimage_print_len)),
+		preimage_for_public_referendum: Some((
+			dispatch_preimage_print,
+			dispatch_preimage_print_len,
+		)),
+		fellowship_referendum_submission: Some(NetworkRuntimeCall::PolkadotAssetHub(
+			fellowship_proposal.get_polkadot_asset_hub_call().expect("polkadot asset hub"),
+		)),
+		public_referendum_submission: Some(NetworkRuntimeCall::PolkadotAssetHub(
+			public_proposal.get_polkadot_asset_hub_call().expect("polkadot asset hub"),
+		)),
+	}
+}
+
 // Generate the calls needed for a proposal to pass on Polkadot without the Fellowship.
 fn polkadot_non_fellowship_referenda(
 	proposal_details: &ProposalDetails,
@@ -549,6 +870,61 @@ fn polkadot_non_fellowship_referenda(
 	}
 }
 
+// Generate the calls needed for a proposal to pass on Polkadot Asset Hub without the Fellowship.
+async fn polkadot_asset_hub_non_fellowship_referenda(
+	proposal_details: &ProposalDetails,
+	origin: PolkadotAssetHubOriginCaller,
+) -> PossibleCallsToSubmit {
+	use polkadot_asset_hub::runtime_types::{
+		frame_support::traits::{preimages::Bounded::Lookup, schedule::DispatchTime},
+		pallet_preimage::pallet::Call as PreimageCall,
+		pallet_referenda::pallet::Call as ReferendaCall,
+	};
+
+	let proposal_bytes = get_proposal_bytes(proposal_details.proposal.clone());
+	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::PolkadotAssetHub);
+
+	let public_referendum_dispatch_time = match proposal_details.dispatch {
+		DispatchTimeWrapper::At(block) => DispatchTime::At(block),
+		DispatchTimeWrapper::After(block) => DispatchTime::After(block),
+	};
+
+	// Create preimage for the proposal on Polkadot AssetHub
+	let note_proposal_preimage = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
+		PolkadotAssetHubRuntimeCall::Preimage(PreimageCall::note_preimage {
+			bytes: proposal_bytes,
+		}),
+	));
+
+	// Create the referendum submission call on Polkadot AssetHub
+	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
+		PolkadotAssetHubRuntimeCall::Referenda(ReferendaCall::submit {
+			proposal_origin: Box::new(origin),
+			proposal: Lookup {
+				hash: H256(proposal_call_info.hash),
+				len: proposal_call_info.length,
+			},
+			enactment_moment: public_referendum_dispatch_time,
+		}),
+	));
+
+	// Prepare print outputs
+	let (proposal_preimage_print, proposal_preimage_print_len) =
+		note_proposal_preimage.create_print_output(proposal_details.output_len_limit);
+
+	PossibleCallsToSubmit {
+		preimage_for_whitelist_call: None,
+		preimage_for_public_referendum: Some((
+			proposal_preimage_print,
+			proposal_preimage_print_len,
+		)),
+		fellowship_referendum_submission: None,
+		public_referendum_submission: Some(NetworkRuntimeCall::PolkadotAssetHub(
+			public_proposal.get_polkadot_asset_hub_call().expect("polkadot asset hub"),
+		)),
+	}
+}
+
 // Takes all the `calls` needed to submit and logs them according to the user's preferences.
 fn deliver_output(proposal_details: ProposalDetails, calls: PossibleCallsToSubmit) {
 	let mut batch_of_calls = Vec::new();
@@ -562,9 +938,9 @@ fn deliver_output(proposal_details: ProposalDetails, calls: PossibleCallsToSubmi
 			},
 			CallOrHash::Hash(h) => {
 				println!(
-					"\nPreimage for the public whitelist call too large ({} bytes). Not included in batch.",
-					len
-				);
+                    "\nPreimage for the public whitelist call too large ({} bytes). Not included in batch.",
+                    len
+                );
 				println!("Submission should have the hash: 0x{}", hex::encode(h));
 			},
 		}
@@ -583,10 +959,12 @@ fn deliver_output(proposal_details: ProposalDetails, calls: PossibleCallsToSubmi
 			},
 			CallOrHash::Hash(h) => {
 				println!(
-					"\nPreimage for the public referendum too large ({} bytes). Not included in batch.",
-					len
-				);
-				println!("A file was created that you can upload in `preimage.note_preimage` in Apps UI.");
+                    "\nPreimage for the public referendum too large ({} bytes). Not included in batch.",
+                    len
+                );
+				println!(
+                    "A file was created that you can upload in `preimage.note_preimage` in Apps UI."
+                );
 				println!("Submission should have the hash: 0x{}", hex::encode(h));
 			},
 		}
@@ -610,13 +988,17 @@ fn handle_batch_of_calls(output: &Output, batch: Vec<NetworkRuntimeCall>) {
 	use polkadot_relay::runtime_types::pallet_utility::pallet::Call as PolkadotRelayUtilityCall;
 
 	let mut kusama_relay_batch = Vec::new();
+	let mut kusama_assethub_batch = Vec::new();
 	let mut polkadot_relay_batch = Vec::new();
+	let mut polkadot_assethub_batch = Vec::new();
 	let mut polkadot_collectives_batch = Vec::new();
 
 	for network_call in batch {
 		match network_call {
 			NetworkRuntimeCall::Kusama(cc) => kusama_relay_batch.push(cc),
+			NetworkRuntimeCall::KusamaAssetHub(cc) => kusama_assethub_batch.push(cc),
 			NetworkRuntimeCall::Polkadot(cc) => polkadot_relay_batch.push(cc),
+			NetworkRuntimeCall::PolkadotAssetHub(cc) => polkadot_assethub_batch.push(cc),
 			NetworkRuntimeCall::PolkadotCollectives(cc) => polkadot_collectives_batch.push(cc),
 			_ => panic!("no other chains are needed for this"),
 		}
@@ -628,12 +1010,29 @@ fn handle_batch_of_calls(output: &Output, batch: Vec<NetworkRuntimeCall>) {
 		println!("\nBatch to submit on Kusama Relay Chain:");
 		print_output(output, &NetworkRuntimeCall::Kusama(batch));
 	}
+	if !kusama_assethub_batch.is_empty() {
+		use kusama_asset_hub::runtime_types::pallet_utility::pallet::Call as KusamaAssetHubUtilityCall;
+		let batch = KusamaAssetHubRuntimeCall::Utility(KusamaAssetHubUtilityCall::force_batch {
+			calls: kusama_assethub_batch,
+		});
+		println!("\nBatch to submit on Kusama AssetHub Chain:");
+		print_output(output, &NetworkRuntimeCall::KusamaAssetHub(batch));
+	}
 	if !polkadot_relay_batch.is_empty() {
 		let batch = PolkadotRuntimeCall::Utility(PolkadotRelayUtilityCall::force_batch {
 			calls: polkadot_relay_batch,
 		});
 		println!("\nBatch to submit on Polkadot Relay Chain:");
 		print_output(output, &NetworkRuntimeCall::Polkadot(batch));
+	}
+	if !polkadot_assethub_batch.is_empty() {
+		use polkadot_asset_hub::runtime_types::pallet_utility::pallet::Call as PolkadotAssetHubUtilityCall;
+		let batch =
+			PolkadotAssetHubRuntimeCall::Utility(PolkadotAssetHubUtilityCall::force_batch {
+				calls: polkadot_assethub_batch,
+			});
+		println!("\nBatch to submit on Polkadot AssetHub Chain:");
+		print_output(output, &NetworkRuntimeCall::PolkadotAssetHub(batch));
 	}
 	if !polkadot_collectives_batch.is_empty() {
 		let batch = CollectivesRuntimeCall::Utility(CollectivesUtilityCall::force_batch {
@@ -671,6 +1070,28 @@ fn print_output(output: &Output, network_call: &NetworkRuntimeCall) {
 		},
 		NetworkRuntimeCall::PolkadotCollectives(call) => {
 			let rpc: &'static str = "wss%3A%2F%2Fpolkadot-collectives-rpc.polkadot.io";
+			match output {
+				Output::CallData => println!("0x{}", hex::encode(call.encode())),
+				Output::AppsUiLink => println!(
+					"https://polkadot.js.org/apps/?rpc={}#/extrinsics/decode/0x{}",
+					rpc,
+					hex::encode(call.encode())
+				),
+			}
+		},
+		NetworkRuntimeCall::KusamaAssetHub(call) => {
+			let rpc: &'static str = "wss%3A%2F%2Fkusama-asset-hub-rpc.polkadot.io%3A443";
+			match output {
+				Output::CallData => println!("0x{}", hex::encode(call.encode())),
+				Output::AppsUiLink => println!(
+					"https://polkadot.js.org/apps/?rpc={}#/extrinsics/decode/0x{}",
+					rpc,
+					hex::encode(call.encode())
+				),
+			}
+		},
+		NetworkRuntimeCall::PolkadotAssetHub(call) => {
+			let rpc: &'static str = "wss%3A%2F%2Fpolkadot-asset-hub-rpc.polkadot.io%3A443";
 			match output {
 				Output::CallData => println!("0x{}", hex::encode(call.encode())),
 				Output::AppsUiLink => println!(

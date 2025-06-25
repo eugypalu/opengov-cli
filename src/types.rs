@@ -1,5 +1,9 @@
 pub(super) use parity_scale_codec::Encode as _;
+use scale_info::TypeInfo;
 pub(super) use sp_core::blake2_256;
+use std::marker::PhantomData;
+use subxt::ext::scale_decode::DecodeAsType;
+use subxt::ext::scale_encode::EncodeAsType;
 pub(super) use subxt::utils::H256;
 
 // Kusama Chains -----------------------------------------------------------------------------------
@@ -16,7 +20,9 @@ pub(super) use kusama_relay::runtime_types::staging_kusama_runtime::{
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-asset-hub-rpc.polkadot.io:443")]
 pub mod kusama_asset_hub {}
-pub(super) use kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::RuntimeCall as KusamaAssetHubRuntimeCall;
+pub(super) use kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::{
+	OriginCaller as KusamaAssetHubOriginCaller, RuntimeCall as KusamaAssetHubRuntimeCall,
+};
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-bridge-hub-rpc.polkadot.io:443")]
 pub mod kusama_bridge_hub {}
@@ -48,7 +54,9 @@ pub(super) use polkadot_relay::runtime_types::polkadot_runtime::{
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-asset-hub-rpc.polkadot.io:443")]
 pub mod polkadot_asset_hub {}
-pub(super) use polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::RuntimeCall as PolkadotAssetHubRuntimeCall;
+pub(super) use polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::{
+	OriginCaller as PolkadotAssetHubOriginCaller, RuntimeCall as PolkadotAssetHubRuntimeCall,
+};
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-collectives-rpc.polkadot.io:443")]
 pub mod polkadot_collectives {}
@@ -127,7 +135,8 @@ impl Network {
 			PolkadotAssetHub
 				| PolkadotCollectives
 				| PolkadotBridgeHub
-				| PolkadotPeople | PolkadotCoretime
+				| PolkadotPeople
+				| PolkadotCoretime
 		)
 	}
 }
@@ -148,6 +157,8 @@ pub(super) struct ProposalDetails {
 	// Whether or not to group all calls into a batch. Uses `force_batch` in case the account does
 	// not have funds for pre-image deposits or is not a fellow.
 	pub(super) print_batch: bool,
+	// Whether to submit the referendum on Asset Hub instead of the relay chain.
+	pub(super) submit_on_asset_hub: bool,
 	// `Some` if you want to manually set the `require_weight_at_most` parameter used in any
 	// `Transact` instruction. If `None`, then the program will fetch the required weight (plus a 2x
 	// factor of safety) and construct the instruction with that.
@@ -473,6 +484,12 @@ impl CallInfo {
 			Network::PolkadotBridgeHub => "wss://polkadot-bridge-hub-rpc.polkadot.io:443",
 			Network::PolkadotPeople => "wss://polkadot-people-rpc.polkadot.io:443",
 			Network::PolkadotCoretime => "wss://polkadot-coretime-rpc.polkadot.io:443",
+			Network::Westend => "wss://westend-rpc.polkadot.io:443",
+			Network::WestendAssetHub => "wss://westend-asset-hub-rpc.polkadot.io:443",
+			Network::WestendBridgeHub => "wss://westend-bridge-hub-rpc.polkadot.io:443",
+			Network::WestendCollectives => "wss://westend-collectives-rpc.polkadot.io:443",
+			Network::WestendPeople => "wss://westend-people-rpc.polkadot.io:443",
+			Network::WestendCoretime => "wss://westend-coretime-rpc.polkadot.io:443",
 		};
 
 		let mut args = self.encoded.clone();
@@ -508,6 +525,16 @@ impl CallInfo {
 					let collectives_call =
 						self.get_polkadot_collectives_call().expect("collectives");
 					CallOrHash::Call(NetworkRuntimeCall::PolkadotCollectives(collectives_call))
+				},
+				Network::KusamaAssetHub => {
+					let kusama_asset_hub_call =
+						self.get_kusama_asset_hub_call().expect("kusama asset hub");
+					CallOrHash::Call(NetworkRuntimeCall::KusamaAssetHub(kusama_asset_hub_call))
+				},
+				Network::PolkadotAssetHub => {
+					let polkadot_asset_hub_call =
+						self.get_polkadot_asset_hub_call().expect("polkadot asset hub");
+					CallOrHash::Call(NetworkRuntimeCall::PolkadotAssetHub(polkadot_asset_hub_call))
 				},
 				_ => panic!("to do"),
 			}
