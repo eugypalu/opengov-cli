@@ -484,12 +484,6 @@ impl CallInfo {
 			Network::PolkadotBridgeHub => "wss://polkadot-bridge-hub-rpc.polkadot.io:443",
 			Network::PolkadotPeople => "wss://polkadot-people-rpc.polkadot.io:443",
 			Network::PolkadotCoretime => "wss://polkadot-coretime-rpc.polkadot.io:443",
-			Network::Westend => "wss://westend-rpc.polkadot.io:443",
-			Network::WestendAssetHub => "wss://westend-asset-hub-rpc.polkadot.io:443",
-			Network::WestendBridgeHub => "wss://westend-bridge-hub-rpc.polkadot.io:443",
-			Network::WestendCollectives => "wss://westend-collectives-rpc.polkadot.io:443",
-			Network::WestendPeople => "wss://westend-people-rpc.polkadot.io:443",
-			Network::WestendCoretime => "wss://westend-coretime-rpc.polkadot.io:443",
 		};
 
 		let mut args = self.encoded.clone();
