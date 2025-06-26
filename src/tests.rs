@@ -102,6 +102,56 @@ fn kusama_root_remark_user_input() -> ProposalDetails {
 	}
 }
 
+fn westend_whitelist_remark_user_input() -> ProposalDetails {
+	use crate::DispatchTimeWrapper::*;
+	use crate::NetworkTrack::*;
+	use crate::Output::*;
+	use crate::WestendOpenGovOrigin;
+	ProposalDetails {
+		// `system.remark("opengov-submit test")`
+		proposal: String::from("0x00004c6f70656e676f762d7375626d69742074657374"),
+		track: Westend(WestendOpenGovOrigin::WhitelistedCaller),
+		dispatch: After(10),
+		output: AppsUiLink,
+		output_len_limit: 1_000,
+		print_batch: true,
+		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
+	}
+}
+
+fn westend_staking_validator_user_input() -> ProposalDetails {
+	use crate::DispatchTimeWrapper::*;
+	use crate::NetworkTrack::*;
+	use crate::Output::*;
+	use crate::WestendOpenGovOrigin;
+	ProposalDetails {
+		// `staking.increase_validator_count(50)`
+		proposal: String::from("0x070ac8"),
+		track: Westend(WestendOpenGovOrigin::StakingAdmin),
+		dispatch: After(10),
+		output: AppsUiLink,
+		output_len_limit: 1_000,
+		print_batch: true,
+		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
+	}
+}
+
+fn westend_root_remark_user_input() -> ProposalDetails {
+	use crate::DispatchTimeWrapper::*;
+	use crate::NetworkTrack::*;
+	use crate::Output::*;
+	ProposalDetails {
+		// `system.remark("opengov-submit test")`
+		proposal: String::from("0x00004c6f70656e676f762d7375626d69742074657374"),
+		track: WestendRoot,
+		dispatch: After(10),
+		output: AppsUiLink,
+		output_len_limit: 1_000,
+		print_batch: true,
+		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
+	}
+}
+
 fn limited_length_user_input() -> ProposalDetails {
 	use crate::DispatchTimeWrapper::*;
 	use crate::NetworkTrack::*;
@@ -453,6 +503,70 @@ async fn it_starts_kusama_root_referenda_correctly() {
 	}
 }
 
+#[tokio::test]
+async fn it_starts_westend_non_fellowship_referenda_correctly() {
+	let proposal_details = westend_staking_validator_user_input();
+	let calls = generate_calls(&proposal_details).await;
+
+	let public_preimage =
+		hex::decode("0x07000c070ac8".trim_start_matches("0x")).expect("Valid call");
+	let public_referendum = hex::decode("0x5b005c0002439a93279b25a49bf366c9fe1b06d4fc342f46b5a3b2734dcffe0c56c12b28ef03000000010a000000".trim_start_matches("0x")).expect("Valid call");
+
+	assert!(calls.preimage_for_whitelist_call.is_none(), "it must not generate this call");
+	assert!(calls.fellowship_referendum_submission.is_none(), "it must not generate this call");
+
+	assert!(calls.preimage_for_public_referendum.is_some(), "it must generate this call");
+	if let Some((coh, length)) = calls.preimage_for_public_referendum {
+		match coh {
+			CallOrHash::Call(public_preimage_generated) => {
+				let call_info = CallInfo::from_runtime_call(public_preimage_generated);
+				assert_eq!(call_info.encoded, public_preimage);
+				assert_eq!(length, 6u32);
+			},
+			CallOrHash::Hash(_) => panic!("call length within the limit"),
+		}
+	}
+
+	assert!(calls.public_referendum_submission.is_some(), "it must generate this call");
+	if let Some(public_referendum_generated) = calls.public_referendum_submission {
+		let call_info = CallInfo::from_runtime_call(public_referendum_generated);
+		assert_eq!(call_info.encoded, public_referendum);
+	}
+}
+
+#[tokio::test]
+async fn it_starts_westend_root_referenda_correctly() {
+	let proposal_details = westend_root_remark_user_input();
+	let calls = generate_calls(&proposal_details).await;
+
+	let public_preimage = hex::decode(
+		"0x07005800004c6f70656e676f762d7375626d69742074657374".trim_start_matches("0x"),
+	)
+	.expect("Valid call");
+	let public_referendum = hex::decode("0x5b000000028821e8db19b8e34b62ee8bc618a5ed3eecb9761d7d81349b00aa5ce5dfca253416000000010a000000".trim_start_matches("0x")).expect("Valid call");
+
+	assert!(calls.preimage_for_whitelist_call.is_none(), "it must not generate this call");
+	assert!(calls.fellowship_referendum_submission.is_none(), "it must not generate this call");
+
+	assert!(calls.preimage_for_public_referendum.is_some(), "it must generate this call");
+	if let Some((coh, length)) = calls.preimage_for_public_referendum {
+		match coh {
+			CallOrHash::Call(public_preimage_generated) => {
+				let call_info = CallInfo::from_runtime_call(public_preimage_generated);
+				assert_eq!(call_info.encoded, public_preimage);
+				assert_eq!(length, 25u32);
+			},
+			CallOrHash::Hash(_) => panic!("call length within the limit"),
+		}
+	}
+
+	assert!(calls.public_referendum_submission.is_some(), "it must generate this call");
+	if let Some(public_referendum_generated) = calls.public_referendum_submission {
+		let call_info = CallInfo::from_runtime_call(public_referendum_generated);
+		assert_eq!(call_info.encoded, public_referendum);
+	}
+}
+
 #[test]
 fn only_relay_chain() {
 	let args = upgrade_args_for_only_relay();
@@ -498,6 +612,45 @@ fn upgrade_everything_works_with_just_relay_version() {
 }
 
 #[test]
+fn westend_upgrade_functionality() {
+	use crate::build_upgrade::{parse_inputs, UpgradeArgs};
+	use crate::{Network, VersionedNetwork};
+	
+	let args = UpgradeArgs {
+		network: "westend".to_string(),
+		only: false,
+		set_relay_directly: true,
+		relay_version: Some("1.2.0".to_string()),
+		asset_hub: Some("1.2.1".to_string()),
+		bridge_hub: None, // Should use relay version
+		collectives: Some("1.2.2".to_string()),
+		encointer: None,
+		people: None,
+		coretime: None,
+		filename: None,
+		additional: None,
+	};
+	
+	let details = parse_inputs(args);
+	
+	assert_eq!(details.relay, Network::Westend);
+	assert_eq!(details.relay_version, Some("1.2.0".to_string()));
+	
+	// Check that Westend networks are included
+	let expected_networks = vec![
+		VersionedNetwork { network: Network::Westend, version: "1.2.0".to_string() },
+		VersionedNetwork { network: Network::WestendAssetHub, version: "1.2.1".to_string() },
+		VersionedNetwork { network: Network::WestendCollectives, version: "1.2.2".to_string() },
+		VersionedNetwork { network: Network::WestendBridgeHub, version: "1.2.0".to_string() },
+		VersionedNetwork { network: Network::WestendPeople, version: "1.2.0".to_string() },
+		VersionedNetwork { network: Network::WestendCoretime, version: "1.2.0".to_string() },
+	];
+	
+	assert_eq!(details.networks, expected_networks);
+	assert_eq!(details.set_relay_directly, true);
+}
+
+#[test]
 fn it_creates_constrained_print_output() {
 	let proposal_details = limited_length_user_input();
 	let proposal_bytes = get_proposal_bytes(proposal_details.proposal);
@@ -517,4 +670,25 @@ fn it_creates_constrained_print_output() {
 		},
 	}
 	assert_eq!(length, proposal_call_info.length);
+}
+
+#[test]
+fn westend_referendum_structure() {
+	use crate::{DispatchTimeWrapper, NetworkTrack, Output, WestendOpenGovOrigin};
+	
+	// Create a mock ProposalDetails for Westend
+	let proposal_details = ProposalDetails {
+		proposal: "0x00004c6f70656e676f762d7375626d69742074657374".to_string(),
+		track: NetworkTrack::Westend(WestendOpenGovOrigin::WhitelistedCaller),
+		dispatch: DispatchTimeWrapper::After(10),
+		output: Output::AppsUiLink,
+		output_len_limit: 1000,
+		print_batch: true,
+		transact_weight_override: None,
+	};
+	
+	// Verify Westend-specific parsing
+	assert!(matches!(proposal_details.track, NetworkTrack::Westend(WestendOpenGovOrigin::WhitelistedCaller)));
+	assert!(matches!(proposal_details.dispatch, DispatchTimeWrapper::After(10)));
+	assert!(matches!(proposal_details.output, Output::AppsUiLink));
 }
