@@ -20,9 +20,7 @@ pub(super) use kusama_relay::runtime_types::staging_kusama_runtime::{
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-asset-hub-rpc.polkadot.io:443")]
 pub mod kusama_asset_hub {}
-pub(super) use kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::{
-	OriginCaller as KusamaAssetHubOriginCaller, RuntimeCall as KusamaAssetHubRuntimeCall,
-};
+pub(super) use kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::RuntimeCall as KusamaAssetHubRuntimeCall;
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-bridge-hub-rpc.polkadot.io:443")]
 pub mod kusama_bridge_hub {}
@@ -54,9 +52,7 @@ pub(super) use polkadot_relay::runtime_types::polkadot_runtime::{
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-asset-hub-rpc.polkadot.io:443")]
 pub mod polkadot_asset_hub {}
-pub(super) use polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::{
-	OriginCaller as PolkadotAssetHubOriginCaller, RuntimeCall as PolkadotAssetHubRuntimeCall,
-};
+pub(super) use polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::RuntimeCall as PolkadotAssetHubRuntimeCall;
 
 #[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-collectives-rpc.polkadot.io:443")]
 pub mod polkadot_collectives {}
@@ -520,16 +516,24 @@ impl CallInfo {
 						self.get_polkadot_collectives_call().expect("collectives");
 					CallOrHash::Call(NetworkRuntimeCall::PolkadotCollectives(collectives_call))
 				},
+				#[cfg(feature = "assethub")]
 				Network::KusamaAssetHub => {
 					let kusama_asset_hub_call =
 						self.get_kusama_asset_hub_call().expect("kusama asset hub");
 					CallOrHash::Call(NetworkRuntimeCall::KusamaAssetHub(kusama_asset_hub_call))
 				},
+				#[cfg(not(feature = "assethub"))]
+				Network::KusamaAssetHub =>
+					panic!("AssetHub support not compiled in. Enable the 'assethub' feature."),
+				#[cfg(feature = "assethub")]
 				Network::PolkadotAssetHub => {
 					let polkadot_asset_hub_call =
 						self.get_polkadot_asset_hub_call().expect("polkadot asset hub");
 					CallOrHash::Call(NetworkRuntimeCall::PolkadotAssetHub(polkadot_asset_hub_call))
 				},
+				#[cfg(not(feature = "assethub"))]
+				Network::PolkadotAssetHub =>
+					panic!("AssetHub support not compiled in. Enable the 'assethub' feature."),
 				_ => panic!("to do"),
 			}
 		};

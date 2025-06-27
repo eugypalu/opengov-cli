@@ -148,7 +148,10 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 		output,
 		output_len_limit,
 		print_batch,
+		#[cfg(feature = "assethub")]
 		submit_on_asset_hub: prefs.asset_hub,
+		#[cfg(not(feature = "assethub"))]
+		submit_on_asset_hub: false,
 		transact_weight_override: None,
 	}
 }
@@ -160,12 +163,17 @@ pub(crate) async fn generate_calls(proposal_details: &ProposalDetails) -> Possib
 		// specially.
 		NetworkTrack::KusamaRoot =>
 			if proposal_details.submit_on_asset_hub {
-				use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
-				kusama_asset_hub_non_fellowship_referenda(
-					proposal_details,
-					KusamaAssetHubOriginCaller::system(RawOrigin::Root),
-				)
-				.await
+				#[cfg(feature = "assethub")]
+				{
+					use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+					kusama_asset_hub_non_fellowship_referenda(
+						proposal_details,
+						KusamaAssetHubOriginCaller::system(RawOrigin::Root),
+					)
+					.await
+				}
+				#[cfg(not(feature = "assethub"))]
+				panic!("AssetHub support not compiled in. Enable the 'assethub' feature.")
 			} else {
 				use kusama_relay::runtime_types::frame_support::dispatch::RawOrigin;
 				kusama_non_fellowship_referenda(
@@ -177,22 +185,27 @@ pub(crate) async fn generate_calls(proposal_details: &ProposalDetails) -> Possib
 		// All special Kusama origins.
 		NetworkTrack::Kusama(kusama_track) => {
 			if proposal_details.submit_on_asset_hub {
-				match kusama_track {
-					// Whitelisted calls are special - they go through Fellowship on Asset Hub too.
-					KusamaOpenGovOrigin::WhitelistedCaller =>
-						kusama_asset_hub_fellowship_referenda(proposal_details).await,
+				#[cfg(feature = "assethub")]
+				{
+					match kusama_track {
+						// Whitelisted calls are special - they go through Fellowship on Asset Hub too.
+						KusamaOpenGovOrigin::WhitelistedCaller =>
+							kusama_asset_hub_fellowship_referenda(proposal_details).await,
 
-					// All other Kusama origins use non-fellowship path on Asset Hub.
-					_ => {
-						// Convert to Asset Hub origin - for now use Root as placeholder
-						use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
-						kusama_asset_hub_non_fellowship_referenda(
-							proposal_details,
-							KusamaAssetHubOriginCaller::system(RawOrigin::Root),
-						)
-						.await
-					},
+						// All other Kusama origins use non-fellowship path on Asset Hub.
+						_ => {
+							// Convert to Asset Hub origin - for now use Root as placeholder
+							use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+							kusama_asset_hub_non_fellowship_referenda(
+								proposal_details,
+								KusamaAssetHubOriginCaller::system(RawOrigin::Root),
+							)
+							.await
+						},
+					}
 				}
+				#[cfg(not(feature = "assethub"))]
+				panic!("AssetHub support not compiled in. Enable the 'assethub' feature.")
 			} else {
 				match kusama_track {
 					// Whitelisted calls are special.
@@ -211,12 +224,17 @@ pub(crate) async fn generate_calls(proposal_details: &ProposalDetails) -> Possib
 		// Same for Polkadot Root origin. It is not part of OpenGovOrigins, so it gets its own arm.
 		NetworkTrack::PolkadotRoot =>
 			if proposal_details.submit_on_asset_hub {
-				use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
-				polkadot_asset_hub_non_fellowship_referenda(
-					proposal_details,
-					PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
-				)
-				.await
+				#[cfg(feature = "assethub")]
+				{
+					use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+					polkadot_asset_hub_non_fellowship_referenda(
+						proposal_details,
+						PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
+					)
+					.await
+				}
+				#[cfg(not(feature = "assethub"))]
+				panic!("AssetHub support not compiled in. Enable the 'assethub' feature.")
 			} else {
 				use polkadot_relay::runtime_types::frame_support::dispatch::RawOrigin;
 				polkadot_non_fellowship_referenda(
@@ -228,19 +246,24 @@ pub(crate) async fn generate_calls(proposal_details: &ProposalDetails) -> Possib
 		// All special Polkadot origins.
 		NetworkTrack::Polkadot(polkadot_track) => {
 			if proposal_details.submit_on_asset_hub {
-				match polkadot_track {
-					PolkadotOpenGovOrigin::WhitelistedCaller =>
-						polkadot_asset_hub_fellowship_referenda(proposal_details).await,
-					_ => {
-						// Convert to Asset Hub origin - for now use Root as placeholder
-						use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
-						polkadot_asset_hub_non_fellowship_referenda(
-							proposal_details,
-							PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
-						)
-						.await
-					},
+				#[cfg(feature = "assethub")]
+				{
+					match polkadot_track {
+						PolkadotOpenGovOrigin::WhitelistedCaller =>
+							polkadot_asset_hub_fellowship_referenda(proposal_details).await,
+						_ => {
+							// Convert to Asset Hub origin - for now use Root as placeholder
+							use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
+							polkadot_asset_hub_non_fellowship_referenda(
+								proposal_details,
+								PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
+							)
+							.await
+						},
+					}
 				}
+				#[cfg(not(feature = "assethub"))]
+				panic!("AssetHub support not compiled in. Enable the 'assethub' feature.")
 			} else {
 				match polkadot_track {
 					PolkadotOpenGovOrigin::WhitelistedCaller =>
@@ -396,6 +419,7 @@ fn kusama_non_fellowship_referenda(
 }
 
 // Generate the calls needed for a proposal to pass on Kusama Asset Hub without the Fellowship.
+#[cfg(feature = "assethub")]
 async fn kusama_asset_hub_non_fellowship_referenda(
 	proposal_details: &ProposalDetails,
 	origin: KusamaAssetHubOriginCaller,
@@ -449,6 +473,7 @@ async fn kusama_asset_hub_non_fellowship_referenda(
 }
 
 // Generate the calls needed for a proposal to pass through the Kusama Asset Hub Fellowship.
+#[cfg(feature = "assethub")]
 async fn kusama_asset_hub_fellowship_referenda(
 	proposal_details: &ProposalDetails,
 ) -> PossibleCallsToSubmit {
@@ -728,6 +753,7 @@ async fn polkadot_fellowship_referenda(
 }
 
 // Generate the calls needed for a proposal to pass through the Polkadot Asset Hub Fellowship.
+#[cfg(feature = "assethub")]
 async fn polkadot_asset_hub_fellowship_referenda(
 	proposal_details: &ProposalDetails,
 ) -> PossibleCallsToSubmit {
@@ -871,6 +897,7 @@ fn polkadot_non_fellowship_referenda(
 }
 
 // Generate the calls needed for a proposal to pass on Polkadot Asset Hub without the Fellowship.
+#[cfg(feature = "assethub")]
 async fn polkadot_asset_hub_non_fellowship_referenda(
 	proposal_details: &ProposalDetails,
 	origin: PolkadotAssetHubOriginCaller,
@@ -988,16 +1015,20 @@ fn handle_batch_of_calls(output: &Output, batch: Vec<NetworkRuntimeCall>) {
 	use polkadot_relay::runtime_types::pallet_utility::pallet::Call as PolkadotRelayUtilityCall;
 
 	let mut kusama_relay_batch = Vec::new();
+	#[cfg(feature = "assethub")]
 	let mut kusama_assethub_batch = Vec::new();
 	let mut polkadot_relay_batch = Vec::new();
+	#[cfg(feature = "assethub")]
 	let mut polkadot_assethub_batch = Vec::new();
 	let mut polkadot_collectives_batch = Vec::new();
 
 	for network_call in batch {
 		match network_call {
 			NetworkRuntimeCall::Kusama(cc) => kusama_relay_batch.push(cc),
+			#[cfg(feature = "assethub")]
 			NetworkRuntimeCall::KusamaAssetHub(cc) => kusama_assethub_batch.push(cc),
 			NetworkRuntimeCall::Polkadot(cc) => polkadot_relay_batch.push(cc),
+			#[cfg(feature = "assethub")]
 			NetworkRuntimeCall::PolkadotAssetHub(cc) => polkadot_assethub_batch.push(cc),
 			NetworkRuntimeCall::PolkadotCollectives(cc) => polkadot_collectives_batch.push(cc),
 			_ => panic!("no other chains are needed for this"),
@@ -1010,6 +1041,7 @@ fn handle_batch_of_calls(output: &Output, batch: Vec<NetworkRuntimeCall>) {
 		println!("\nBatch to submit on Kusama Relay Chain:");
 		print_output(output, &NetworkRuntimeCall::Kusama(batch));
 	}
+	#[cfg(feature = "assethub")]
 	if !kusama_assethub_batch.is_empty() {
 		use kusama_asset_hub::runtime_types::pallet_utility::pallet::Call as KusamaAssetHubUtilityCall;
 		let batch = KusamaAssetHubRuntimeCall::Utility(KusamaAssetHubUtilityCall::force_batch {
@@ -1025,6 +1057,7 @@ fn handle_batch_of_calls(output: &Output, batch: Vec<NetworkRuntimeCall>) {
 		println!("\nBatch to submit on Polkadot Relay Chain:");
 		print_output(output, &NetworkRuntimeCall::Polkadot(batch));
 	}
+	#[cfg(feature = "assethub")]
 	if !polkadot_assethub_batch.is_empty() {
 		use polkadot_asset_hub::runtime_types::pallet_utility::pallet::Call as PolkadotAssetHubUtilityCall;
 		let batch =
@@ -1079,6 +1112,7 @@ fn print_output(output: &Output, network_call: &NetworkRuntimeCall) {
 				),
 			}
 		},
+		#[cfg(feature = "assethub")]
 		NetworkRuntimeCall::KusamaAssetHub(call) => {
 			let rpc: &'static str = "wss%3A%2F%2Fkusama-asset-hub-rpc.polkadot.io%3A443";
 			match output {
@@ -1090,6 +1124,7 @@ fn print_output(output: &Output, network_call: &NetworkRuntimeCall) {
 				),
 			}
 		},
+		#[cfg(feature = "assethub")]
 		NetworkRuntimeCall::PolkadotAssetHub(call) => {
 			let rpc: &'static str = "wss%3A%2F%2Fpolkadot-asset-hub-rpc.polkadot.io%3A443";
 			match output {

@@ -18,6 +18,7 @@ fn polkadot_whitelist_remark_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 1_000,
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
@@ -34,6 +35,7 @@ fn polkadot_staking_validator_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 1_000,
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
@@ -50,6 +52,7 @@ fn polkadot_root_remark_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 1_000,
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
@@ -66,6 +69,7 @@ fn kusama_whitelist_remark_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 1_000,
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
@@ -82,6 +86,7 @@ fn kusama_staking_validator_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 1_000,
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
@@ -98,6 +103,7 @@ fn kusama_root_remark_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 1_000,
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
@@ -114,6 +120,7 @@ fn limited_length_user_input() -> ProposalDetails {
 		output: AppsUiLink,
 		output_len_limit: 5, // very limiting
 		print_batch: true,
+		submit_on_asset_hub: false,
 		transact_weight_override: Some(Weight { ref_time: 1_000_000_000, proof_size: 1_000_000 }),
 	}
 }
