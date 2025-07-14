@@ -23,7 +23,8 @@ pub(crate) struct ReferendumArgs {
 	#[clap(long = "at")]
 	at: Option<u32>,
 
-	/// Optional: Enact at a particular wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800)
+	/// Optional: Enact at a particular wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800).
+	/// This will create an estimated block number based on the target block production rate. Note that as some block production slots are inevitably missed, this is the earliest time at which the referendum will enact.
 	#[clap(long = "at-date")]
 	at_date: Option<String>,
 
