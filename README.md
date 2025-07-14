@@ -47,6 +47,7 @@ Options:
           Optional: Enact at a particular block number
       --at-date <AT_DATE>
           Optional: Enact at a particular wall clock time (format: DD-MM-YYThhmm, e.g. 25-05-21T0800)
+          Note: The date/time is interpreted in your local machine's time zone.
       --after <AFTER>
           Optional: Enact after a given number of blocks
       --output-len-limit <OUTPUT_LEN_LIMIT>
