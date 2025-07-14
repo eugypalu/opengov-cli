@@ -102,7 +102,7 @@ async fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 	let dispatch = match (prefs.at, prefs.at_date, prefs.after) {
 		(None, None, None) => {
 			println!("\nNo enactment time specified. Defaulting to `After(10)`.");
-			println!("Specify an enactment time with `--at <block>`, `--at-date <time>` or `--after <blocks>`.\n");
+			println!("Specify an enactment time with `--at <block>`, `--at-date <time>`, or `--after <blocks>`.\n");
 			After(10)
 		},
 		(Some(_), Some(_), _) => {
