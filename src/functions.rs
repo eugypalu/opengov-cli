@@ -30,7 +30,7 @@ pub(crate) fn get_proposal_bytes(proposal: String) -> Vec<u8> {
 	}
 }
 
-/// Convert a wall clock time string to a block number
+/// Convert a wall clock time string to a block number.
 /// Format: DD-MM-YYThhmm (e.g. 25-05-21T0800)
 pub(crate) async fn wall_clock_to_block_number(
 	time_str: &str,
