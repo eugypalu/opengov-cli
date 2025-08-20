@@ -613,11 +613,11 @@ async function checkRuntimeUpgrade() {{
 		console.log('✅ Runtime version after upgrade:', version);
 		
 		// Add custom checks for your specific upgrade
-		// if (version.specVersion >= expectedVersion) {{
-		//   console.log('✅ Runtime upgrade successful');
-		// }} else {{
-		//   console.log('❌ Runtime upgrade may have failed');
-		// }}
+		if (version.specVersion >= expectedVersion) {{
+		  console.log('✅ Runtime upgrade successful');
+		}} else {{
+		  console.log('❌ Runtime upgrade may have failed');
+		}}
 		
 		return version;
 	}} catch (error) {{
