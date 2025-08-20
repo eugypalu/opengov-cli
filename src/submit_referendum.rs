@@ -1,4 +1,5 @@
 use crate::*;
+use crate::chopsticks::run_chopsticks_tests;
 use clap::Parser as ClapParser;
 use std::fs;
 
@@ -37,16 +38,28 @@ pub(crate) struct ReferendumArgs {
 	/// Form of output. `AppsUiLink` or `CallData`. Defaults to Apps UI.
 	#[clap(long = "output")]
 	output: Option<String>,
+
+	/// Optional: Run chopsticks test with the specified test file (.js or .ts).
+	#[clap(long = "test")]
+	test: Option<String>,
 }
 
 // The sub-command's "main" function.
 pub(crate) async fn submit_referendum(prefs: ReferendumArgs) {
 	// Find out what the user wants to do.
+	let test_file = prefs.test.clone();
 	let proposal_details = parse_inputs(prefs);
 	// Generate the calls necessary.
 	let calls = generate_calls(&proposal_details).await;
-	// Tell the user what to do.
-	deliver_output(proposal_details, calls);
+	
+	// If test file is provided, run chopsticks tests
+	if let Some(test_file_path) = test_file {
+		println!("Running chopsticks tests with file: {}", test_file_path);
+		run_chopsticks_tests(&proposal_details, &calls, &test_file_path).await;
+	} else {
+		// Tell the user what to do.
+		deliver_output(proposal_details, calls);
+	}
 }
 
 // Parse the CLI inputs and return a typed struct with all the details needed.
