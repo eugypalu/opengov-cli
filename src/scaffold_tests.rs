@@ -4,7 +4,7 @@ use std::fs;
 
 /// Generate test scaffolding for chopsticks testing.
 #[derive(Debug, ClapParser)]
-pub(crate) struct ScaffoldTestsArgs {
+pub(crate) struct GenerateTestScaffoldArgs {
 	/// Network to generate tests for (`polkadot` or `kusama`).
 	#[clap(long = "network", short)]
 	network: String,
@@ -15,7 +15,7 @@ pub(crate) struct ScaffoldTestsArgs {
 }
 
 // The sub-command's "main" function.
-pub(crate) async fn scaffold_tests(prefs: ScaffoldTestsArgs) {
+pub(crate) async fn run_generate_test_scaffold(prefs: GenerateTestScaffoldArgs) {
 	println!("🏗️  Generating chopsticks test scaffolding for {} network...", prefs.network);
 	
 	// Validate network

@@ -7,7 +7,7 @@ use crate::build_upgrade::{build_upgrade, UpgradeArgs};
 mod submit_referendum;
 use crate::submit_referendum::{submit_referendum, ReferendumArgs};
 mod scaffold_tests;
-use crate::scaffold_tests::{scaffold_tests, ScaffoldTestsArgs};
+use crate::scaffold_tests::{run_generate_test_scaffold, GenerateTestScaffoldArgs};
 mod chopsticks;
 use clap::Parser as ClapParser;
 
@@ -19,7 +19,8 @@ mod tests;
 enum Command {
 	BuildUpgrade(UpgradeArgs),
 	SubmitReferendum(ReferendumArgs),
-	ScaffoldTests(ScaffoldTestsArgs),
+	#[command(name = "scaffold-tests")]
+	GenerateTestScaffold(GenerateTestScaffoldArgs),
 }
 
 #[tokio::main]
@@ -28,6 +29,6 @@ async fn main() {
 	match args {
 		Command::BuildUpgrade(prefs) => build_upgrade(prefs).await,
 		Command::SubmitReferendum(prefs) => submit_referendum(prefs).await,
-		Command::ScaffoldTests(prefs) => scaffold_tests(prefs).await,
+		Command::GenerateTestScaffold(prefs) => run_generate_test_scaffold(prefs).await,
 	}
 }
