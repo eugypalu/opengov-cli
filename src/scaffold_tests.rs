@@ -17,23 +17,23 @@ pub(crate) struct GenerateTestScaffoldArgs {
 // The sub-command's "main" function.
 pub(crate) async fn run_generate_test_scaffold(prefs: GenerateTestScaffoldArgs) {
 	println!("🏗️  Generating chopsticks test scaffolding for {} network...", prefs.network);
-	
+
 	// Validate network
 	let network = match prefs.network.to_lowercase().as_str() {
 		"polkadot" => "polkadot",
-		"kusama" => "kusama", 
+		"kusama" => "kusama",
 		_ => {
 			eprintln!("❌ Error: Network must be 'polkadot' or 'kusama'");
 			return;
-		}
+		},
 	};
-	
+
 	// Generate test scaffold content
 	let test_content = generate_test_scaffold(network);
-	
+
 	// Determine output file name
 	let output_file = prefs.output.unwrap_or_else(|| "testfile.ts".to_string());
-	
+
 	// Write to file
 	match fs::write(&output_file, test_content) {
 		Ok(_) => {
@@ -50,6 +50,6 @@ pub(crate) async fn run_generate_test_scaffold(prefs: GenerateTestScaffoldArgs) 
 		},
 		Err(e) => {
 			eprintln!("❌ Error writing test file: {}", e);
-		}
+		},
 	}
 }

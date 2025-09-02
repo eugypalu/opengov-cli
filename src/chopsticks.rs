@@ -52,13 +52,11 @@ pub(crate) async fn run_chopsticks_tests(
 // Get network configuration for chopsticks
 fn get_network_config(proposal_details: &ProposalDetails) -> NetworkConfig {
 	match &proposal_details.track {
-		NetworkTrack::KusamaRoot | NetworkTrack::Kusama(_) => NetworkConfig {
-			name: "kusama".to_string(),
-			port: 8000,
+		NetworkTrack::KusamaRoot | NetworkTrack::Kusama(_) => {
+			NetworkConfig { name: "kusama".to_string(), port: 8000 }
 		},
-		NetworkTrack::PolkadotRoot | NetworkTrack::Polkadot(_) => NetworkConfig {
-			name: "polkadot".to_string(),
-			port: 8000,
+		NetworkTrack::PolkadotRoot | NetworkTrack::Polkadot(_) => {
+			NetworkConfig { name: "polkadot".to_string(), port: 8000 }
 		},
 	}
 }
@@ -66,14 +64,11 @@ fn get_network_config(proposal_details: &ProposalDetails) -> NetworkConfig {
 // Start chopsticks process
 async fn start_chopsticks(config: &NetworkConfig) -> std::process::Child {
 	println!("🚀 Starting chopsticks for {} network on port {}...", config.name, config.port);
-	
+
 	// Use direct chopsticks command as specified in the requirements
 	let mut cmd = Command::new("chopsticks");
-	cmd.args(&[
-		"-c", &config.name,
-		"--port", &config.port.to_string(),
-	]);
-	
+	cmd.args(&["-c", &config.name, "--port", &config.port.to_string()]);
+
 	cmd.stdout(Stdio::inherit())
 		.stderr(Stdio::inherit())
 		.spawn()
@@ -88,12 +83,13 @@ fn generate_test_script(
 ) -> String {
 	let network_config = get_network_config(proposal_details);
 	let http_endpoint = format!("http://127.0.0.1:{}", network_config.port);
-	
+
 	// Extract call data for injections based on the actual HackMD flow
-	let (preimage_call_data, whitelist_call_data, dispatch_call_hash, dispatch_call_len) = 
-		extract_hackmd_flow_data(calls);
-	
-	format!(r#"
+	let (preimage_call_data, whitelist_call_data, dispatch_call_hash, dispatch_call_len) =
+		extract_flow_data(calls);
+
+	format!(
+		r#"
 /**
  * Simple HTTP-based chopsticks interaction function
  */
@@ -247,8 +243,8 @@ async function injectWhitelistedCallerCall(endpoint, callLen, callHash) {{
 }}
 
 main();
-"#, 
-		http_endpoint, 
+"#,
+		http_endpoint,
 		http_endpoint,
 		preimage_call_data,
 		http_endpoint,
@@ -260,11 +256,12 @@ main();
 	)
 }
 
-fn extract_hackmd_flow_data(calls: &PossibleCallsToSubmit) -> (String, String, String, u32) {
+fn extract_flow_data(calls: &PossibleCallsToSubmit) -> (String, String, String, u32) {
 	println!("🔍 Extracting call data for chopsticks test execution...");
-	
+
 	// Extract the preimage call data for the main referendum
-	let preimage_call_data = if let Some((call_or_hash, _)) = &calls.preimage_for_public_referendum {
+	let preimage_call_data = if let Some((call_or_hash, _)) = &calls.preimage_for_public_referendum
+	{
 		match call_or_hash {
 			CallOrHash::Call(network_call) => {
 				let encoded = match network_call {
@@ -330,32 +327,33 @@ fn extract_hackmd_flow_data(calls: &PossibleCallsToSubmit) -> (String, String, S
 	};
 
 	// Extract the dispatch call hash and length for WhitelistedCaller dispatch
-	let (dispatch_call_hash, dispatch_call_len) = if let Some((call_or_hash, len)) = &calls.preimage_for_public_referendum {
-		match call_or_hash {
-			CallOrHash::Call(network_call) => {
-				let encoded = match network_call {
-					NetworkRuntimeCall::Kusama(call) => call.encode(),
-					NetworkRuntimeCall::Polkadot(call) => call.encode(),
-					_ => vec![],
-				};
-				let hash = blake2_256(&encoded);
-				let hash_str = format!("0x{}", hex::encode(hash));
-				let len = encoded.len() as u32;
-				println!("📊 WhitelistedCaller dispatch hash: {}", hash_str);
-				println!("📊 WhitelistedCaller dispatch length: {} bytes", len);
-				(hash_str, len)
-			},
-			CallOrHash::Hash(hash) => {
-				let hash_str = format!("0x{}", hex::encode(hash));
-				println!("📊 WhitelistedCaller dispatch hash (from precomputed): {}", hash_str);
-				println!("📊 WhitelistedCaller dispatch length: {} bytes", len);
-				(hash_str, *len)
-			},
-		}
-	} else {
-		println!("⚠️  No public referendum call found");
-		("0x".to_string(), 0)
-	};
+	let (dispatch_call_hash, dispatch_call_len) =
+		if let Some((call_or_hash, len)) = &calls.preimage_for_public_referendum {
+			match call_or_hash {
+				CallOrHash::Call(network_call) => {
+					let encoded = match network_call {
+						NetworkRuntimeCall::Kusama(call) => call.encode(),
+						NetworkRuntimeCall::Polkadot(call) => call.encode(),
+						_ => vec![],
+					};
+					let hash = blake2_256(&encoded);
+					let hash_str = format!("0x{}", hex::encode(hash));
+					let len = encoded.len() as u32;
+					println!("📊 WhitelistedCaller dispatch hash: {}", hash_str);
+					println!("📊 WhitelistedCaller dispatch length: {} bytes", len);
+					(hash_str, len)
+				},
+				CallOrHash::Hash(hash) => {
+					let hash_str = format!("0x{}", hex::encode(hash));
+					println!("📊 WhitelistedCaller dispatch hash (from precomputed): {}", hash_str);
+					println!("📊 WhitelistedCaller dispatch length: {} bytes", len);
+					(hash_str, *len)
+				},
+			}
+		} else {
+			println!("⚠️  No public referendum call found");
+			("0x".to_string(), 0)
+		};
 
 	println!("✅ Call data extraction completed");
 	(preimage_call_data, whitelist_call_data, dispatch_call_hash, dispatch_call_len)
@@ -368,7 +366,8 @@ fn include_user_test_file(test_file_path: &str) -> String {
 			// Check if the file exports a function or contains module patterns
 			if content.contains("export") || content.contains("module.exports") {
 				// Try to require and run the user test
-				format!(r#"
+				format!(
+					r#"
 	try {{
 		const userTests = require('{}');
 		if (typeof userTests === 'function') {{
@@ -382,23 +381,28 @@ fn include_user_test_file(test_file_path: &str) -> String {
 		}}
 	}} catch (error) {{
 		console.warn('Error running user tests:', error.message);
-	}}"#, test_file_path)
+	}}"#,
+					test_file_path
+				)
 			} else {
 				// If it's raw code, wrap it in a try-catch and include directly
-				format!(r#"
+				format!(
+					r#"
 	try {{
 		// User test code begins
 		{}
 		// User test code ends
 	}} catch (error) {{
 		console.warn('Error in user test code:', error.message);
-	}}"#, content)
+	}}"#,
+					content
+				)
 			}
 		},
 		Err(_) => {
 			println!("⚠️  Warning: Could not read user test file: {}", test_file_path);
 			"console.log('⚠️  No user tests found or could not read test file');".to_string()
-		}
+		},
 	}
 }
 
@@ -408,7 +412,7 @@ async fn execute_test_script(script_path: &str) -> Result<(), String> {
 		.args(&[script_path])
 		.output()
 		.map_err(|e| format!("Failed to execute test script: {}", e))?;
-	
+
 	if output.status.success() {
 		println!("✅ Test execution successful!");
 		if !output.stdout.is_empty() {
@@ -443,16 +447,29 @@ pub(crate) fn generate_test_scaffold(network: &str) -> String {
 	let (rpc_endpoint, system_chains) = match network.to_lowercase().as_str() {
 		"polkadot" => (
 			"wss://polkadot-rpc.dwellir.com",
-			vec!["asset-hub-polkadot", "bridge-hub-polkadot", "collectives-polkadot", "people-polkadot", "coretime-polkadot"]
+			vec![
+				"asset-hub-polkadot",
+				"bridge-hub-polkadot",
+				"collectives-polkadot",
+				"people-polkadot",
+				"coretime-polkadot",
+			],
 		),
 		"kusama" => (
-			"wss://kusama-rpc.dwellir.com", 
-			vec!["asset-hub-kusama", "bridge-hub-kusama", "people-kusama", "coretime-kusama", "encointer-kusama"]
+			"wss://kusama-rpc.dwellir.com",
+			vec![
+				"asset-hub-kusama",
+				"bridge-hub-kusama",
+				"people-kusama",
+				"coretime-kusama",
+				"encointer-kusama",
+			],
 		),
 		_ => ("wss://polkadot-rpc.dwellir.com", vec!["asset-hub-polkadot"]),
 	};
 
-	format!(r#"// Simple chopsticks test - no external dependencies needed!
+	format!(
+		r#"// Simple chopsticks test - no external dependencies needed!
 
 /**
  * Test file for {} OpenGov referendum testing with Chopsticks
@@ -656,5 +673,7 @@ module.exports = {{
 	CONFIG,
 	TEST_ACCOUNTS
 }};
-"#, network, network, network, network, network, network)
+"#,
+		network, network, network, network, network, network
+	)
 }
