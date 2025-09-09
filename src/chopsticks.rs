@@ -593,7 +593,7 @@ async function fundAccount(account, amount) {{
 				[account], {{
 					providers: 1,
 					data: {{
-						free: amount * 1000000000000, // 1e12 planck units
+						free: amount * 10e12, // 1e12 planck units
 						reserved: 0,
 						miscFrozen: 0,
 						feeFrozen: 0
