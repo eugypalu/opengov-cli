@@ -518,3 +518,234 @@ fn it_creates_constrained_print_output() {
 	}
 	assert_eq!(length, proposal_call_info.length);
 }
+
+// ===========================================================================================
+// Fast-Track Referendum Tests
+// ===========================================================================================
+
+#[tokio::test]
+#[ignore] // Requires Chopsticks to be installed and running
+async fn it_fast_tracks_polkadot_root_referendum() {
+	use crate::chopsticks::run_chopsticks_tests;
+	use std::fs;
+	
+	let proposal_details = polkadot_root_remark_user_input();
+	let calls = generate_calls(&proposal_details).await;
+	
+	// Create a temporary test file
+	let test_file_content = r#"
+		// Basic test to verify chopsticks is working
+		console.log('✅ User test executed successfully');
+	"#;
+	let test_file_path = "temp_test_root.js";
+	fs::write(test_file_path, test_file_content).expect("Failed to write test file");
+	
+	// Run the chopsticks test
+	// Note: This will actually try to run chopsticks
+	// In a real CI environment, you'd mock or skip this
+	run_chopsticks_tests(&proposal_details, &calls, test_file_path).await;
+	
+	// Clean up
+	let _ = fs::remove_file(test_file_path);
+	
+	// This test passes if chopsticks completes without panicking
+	// In production, we'd verify the referendum actually executed
+}
+
+#[tokio::test]
+#[ignore] // Requires Chopsticks to be installed and running
+async fn it_fast_tracks_polkadot_staking_admin_referendum() {
+	use crate::chopsticks::run_chopsticks_tests;
+	use std::fs;
+	
+	let proposal_details = polkadot_staking_validator_user_input();
+	let calls = generate_calls(&proposal_details).await;
+	
+	// Create a temporary test file
+	let test_file_content = r#"
+		// Test to verify the proposal was executed
+		console.log('🔍 Verifying staking admin proposal execution...');
+		// In a real test, we'd check validator count increased
+		console.log('✅ Staking admin test completed');
+	"#;
+	let test_file_path = "temp_test_staking.js";
+	fs::write(test_file_path, test_file_content).expect("Failed to write test file");
+	
+	// Run the chopsticks test
+	run_chopsticks_tests(&proposal_details, &calls, test_file_path).await;
+	
+	// Clean up
+	let _ = fs::remove_file(test_file_path);
+}
+
+#[tokio::test]
+#[ignore] // Requires Chopsticks to be installed and running
+async fn it_fast_tracks_polkadot_whitelist_caller_referendum() {
+	use crate::chopsticks::run_chopsticks_tests;
+	use std::fs;
+	
+	let proposal_details = polkadot_whitelist_remark_user_input();
+	let calls = generate_calls(&proposal_details).await;
+	
+	// Create a temporary test file with verification
+	let test_file_content = r#"
+		// Test fellowship referendum execution
+		console.log('🔍 Verifying WhitelistedCaller proposal execution...');
+		// This is a fellowship referendum, so both fellowship and public referenda should execute
+		console.log('✅ WhitelistedCaller test completed');
+	"#;
+	let test_file_path = "temp_test_whitelist.js";
+	fs::write(test_file_path, test_file_content).expect("Failed to write test file");
+	
+	// Run the chopsticks test
+	run_chopsticks_tests(&proposal_details, &calls, test_file_path).await;
+	
+	// Clean up
+	let _ = fs::remove_file(test_file_path);
+}
+
+#[tokio::test]
+#[ignore] // Requires Chopsticks to be installed and running
+async fn it_fast_tracks_kusama_root_referendum() {
+	use crate::chopsticks::run_chopsticks_tests;
+	use std::fs;
+	
+	let proposal_details = kusama_root_remark_user_input();
+	let calls = generate_calls(&proposal_details).await;
+	
+	// Create a temporary test file
+	let test_file_content = r#"
+		// Basic test for Kusama network
+		console.log('✅ Kusama root test executed successfully');
+	"#;
+	let test_file_path = "temp_test_kusama_root.js";
+	fs::write(test_file_path, test_file_content).expect("Failed to write test file");
+	
+	// Run the chopsticks test
+	run_chopsticks_tests(&proposal_details, &calls, test_file_path).await;
+	
+	// Clean up
+	let _ = fs::remove_file(test_file_path);
+}
+
+#[test]
+fn it_generates_correct_track_info_for_all_origins() {
+	use crate::chopsticks::get_track_info;
+	
+	// Test Polkadot Root
+	let polkadot_root_details = polkadot_root_remark_user_input();
+	let track_info = get_track_info(&polkadot_root_details);
+	assert_eq!(track_info.track_id, 0);
+	assert_eq!(track_info.origin_type, "system");
+	assert_eq!(track_info.origin_value, "Root");
+	
+	// Test Polkadot WhitelistedCaller
+	let polkadot_whitelist_details = polkadot_whitelist_remark_user_input();
+	let track_info = get_track_info(&polkadot_whitelist_details);
+	assert_eq!(track_info.track_id, 1);
+	assert_eq!(track_info.origin_type, "Origins");
+	assert_eq!(track_info.origin_value, "WhitelistedCaller");
+	
+	// Test Polkadot StakingAdmin
+	let polkadot_staking_details = polkadot_staking_validator_user_input();
+	let track_info = get_track_info(&polkadot_staking_details);
+	assert_eq!(track_info.track_id, 10);
+	assert_eq!(track_info.origin_type, "Origins");
+	assert_eq!(track_info.origin_value, "StakingAdmin");
+	
+	// Test Kusama Root
+	let kusama_root_details = kusama_root_remark_user_input();
+	let track_info = get_track_info(&kusama_root_details);
+	assert_eq!(track_info.track_id, 0);
+	assert_eq!(track_info.origin_type, "system");
+	assert_eq!(track_info.origin_value, "Root");
+	
+	// Test Kusama WhitelistedCaller
+	let kusama_whitelist_details = kusama_whitelist_remark_user_input();
+	let track_info = get_track_info(&kusama_whitelist_details);
+	assert_eq!(track_info.track_id, 1);
+	assert_eq!(track_info.origin_type, "Origins");
+	assert_eq!(track_info.origin_value, "WhitelistedCaller");
+	
+	// Test Kusama StakingAdmin
+	let kusama_staking_details = kusama_staking_validator_user_input();
+	let track_info = get_track_info(&kusama_staking_details);
+	assert_eq!(track_info.track_id, 10);
+	assert_eq!(track_info.origin_type, "Origins");
+	assert_eq!(track_info.origin_value, "StakingAdmin");
+}
+
+#[tokio::test]
+async fn it_generates_valid_fast_track_test_script() {
+	use crate::chopsticks::generate_test_script;
+	
+	// Test with a simple root referendum
+	let proposal_details = polkadot_root_remark_user_input();
+	let calls = generate_calls(&proposal_details).await;
+	
+	// Create a minimal user test file
+	let test_file_content = "console.log('test');";
+	let test_file_path = "temp_script_test.js";
+	std::fs::write(test_file_path, test_file_content).expect("Failed to write test file");
+	
+	// Generate the test script
+	let script = generate_test_script(&proposal_details, &calls, test_file_path);
+	
+	// Verify the script contains all the necessary components
+	assert!(script.contains("async function generateProposal"), "Script should contain generateProposal function");
+	assert!(script.contains("async function fastTrackReferendum"), "Script should contain fastTrackReferendum function");
+	assert!(script.contains("async function moveScheduledCall"), "Script should contain moveScheduledCall function");
+	assert!(script.contains("async function verifyReferendumExecution"), "Script should contain verifyReferendumExecution function");
+	assert!(script.contains("async function rpcCall"), "Script should contain rpcCall function");
+	assert!(script.contains("async function main()"), "Script should contain main function");
+	
+	// Verify track-specific data is included (track ID 0 is passed as parameter)
+	assert!(script.contains("track: trackId") || script.contains("trackId"), "Script should reference trackId");
+	assert!(script.contains("'system'") && script.contains("'Root'"), "Root origin should be system.Root");
+	
+	// Verify the user test content is included
+	assert!(script.contains(test_file_content), "Script should include user test content");
+	
+	// Clean up
+	let _ = std::fs::remove_file(test_file_path);
+}
+
+#[tokio::test]
+async fn it_generates_different_scripts_for_different_tracks() {
+	use crate::chopsticks::generate_test_script;
+	
+	// Test Root track
+	let root_details = polkadot_root_remark_user_input();
+	let root_calls = generate_calls(&root_details).await;
+	let test_file = "temp_track_test.js";
+	std::fs::write(test_file, "").unwrap();
+	let root_script = generate_test_script(&root_details, &root_calls, test_file);
+	
+	// Test StakingAdmin track
+	let staking_details = polkadot_staking_validator_user_input();
+	let staking_calls = generate_calls(&staking_details).await;
+	let staking_script = generate_test_script(&staking_details, &staking_calls, test_file);
+	
+	// Test WhitelistedCaller track
+	let whitelist_details = polkadot_whitelist_remark_user_input();
+	let whitelist_calls = generate_calls(&whitelist_details).await;
+	let whitelist_script = generate_test_script(&whitelist_details, &whitelist_calls, test_file);
+	
+	// Verify they're different
+	assert_ne!(root_script, staking_script, "Root and StakingAdmin scripts should differ");
+	assert_ne!(root_script, whitelist_script, "Root and WhitelistedCaller scripts should differ");
+	assert_ne!(staking_script, whitelist_script, "StakingAdmin and WhitelistedCaller scripts should differ");
+	
+	// Verify Root has system origin
+	assert!(root_script.contains("'system'") && root_script.contains("'Root'"));
+	
+	// Verify StakingAdmin has Origins origin
+	assert!(staking_script.contains("'Origins'") && staking_script.contains("'StakingAdmin'"));
+	
+	// Verify WhitelistedCaller has Origins origin
+	assert!(whitelist_script.contains("'Origins'") && whitelist_script.contains("'WhitelistedCaller'"));
+	
+	// Clean up
+	let _ = std::fs::remove_file(test_file);
+}
+
