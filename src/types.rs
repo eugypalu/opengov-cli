@@ -5,7 +5,7 @@ pub(super) use subxt::utils::H256;
 // Kusama Chains -----------------------------------------------------------------------------------
 
 #[subxt::subxt(
-	runtime_metadata_insecure_url = "wss://kusama-rpc.n.dwellir.com:443",
+	runtime_metadata_insecure_url = "wss://rpc.ibp.network/kusama:443",
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod kusama_relay {}
@@ -14,30 +14,30 @@ pub(super) use kusama_relay::runtime_types::staging_kusama_runtime::{
 	OriginCaller as KusamaOriginCaller, RuntimeCall as KusamaRuntimeCall,
 };
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-asset-hub-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/asset-hub-kusama:443")]
 pub mod kusama_asset_hub {}
 pub(super) use kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::RuntimeCall as KusamaAssetHubRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-bridge-hub-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/bridgehub-kusama:443")]
 pub mod kusama_bridge_hub {}
 pub(super) use kusama_bridge_hub::runtime_types::bridge_hub_kusama_runtime::RuntimeCall as KusamaBridgeHubRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://encointer-kusama-rpc.n.dwellir.com:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/encointer-kusama:443")]
 pub mod kusama_encointer {}
 pub(super) use kusama_encointer::runtime_types::encointer_kusama_runtime::RuntimeCall as KusamaEncointerRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-people-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/people-kusama:443")]
 pub mod kusama_people {}
 pub(super) use kusama_people::runtime_types::people_kusama_runtime::RuntimeCall as KusamaPeopleRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://kusama-coretime-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/coretime-kusama:443")]
 pub mod kusama_coretime {}
 pub(super) use kusama_coretime::runtime_types::coretime_kusama_runtime::RuntimeCall as KusamaCoretimeRuntimeCall;
 
 // Polkadot Chains ---------------------------------------------------------------------------------
 
 #[subxt::subxt(
-	runtime_metadata_insecure_url = "wss://polkadot-rpc.n.dwellir.com:443",
+	runtime_metadata_insecure_url = "wss://rpc.ibp.network/polkadot:443",
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod polkadot_relay {}
@@ -46,11 +46,11 @@ pub(super) use polkadot_relay::runtime_types::polkadot_runtime::{
 	OriginCaller as PolkadotOriginCaller, RuntimeCall as PolkadotRuntimeCall,
 };
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-asset-hub-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/asset-hub-polkadot:443")]
 pub mod polkadot_asset_hub {}
 pub(super) use polkadot_asset_hub::runtime_types::asset_hub_polkadot_runtime::RuntimeCall as PolkadotAssetHubRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-collectives-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/collectives-polkadot:443")]
 pub mod polkadot_collectives {}
 pub(super) use polkadot_collectives::runtime_types::{
 	collectives_polkadot_runtime::{
@@ -60,15 +60,15 @@ pub(super) use polkadot_collectives::runtime_types::{
 	sp_weights::weight_v2::Weight,
 };
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-bridge-hub-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/bridge-hub-polkadot:443")]
 pub mod polkadot_bridge_hub {}
 pub(super) use polkadot_bridge_hub::runtime_types::bridge_hub_polkadot_runtime::RuntimeCall as PolkadotBridgeHubRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-people-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/people-polkadot:443")]
 pub mod polkadot_people {}
 pub(super) use polkadot_people::runtime_types::people_polkadot_runtime::RuntimeCall as PolkadotPeopleRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://polkadot-coretime-rpc.polkadot.io:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/coretime-polkadot:443")]
 pub mod polkadot_coretime {}
 pub(super) use polkadot_coretime::runtime_types::coretime_polkadot_runtime::RuntimeCall as PolkadotCoretimeRuntimeCall;
 
