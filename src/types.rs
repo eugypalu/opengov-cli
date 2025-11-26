@@ -5,7 +5,7 @@ pub(super) use subxt::utils::H256;
 // Kusama Chains -----------------------------------------------------------------------------------
 
 #[subxt::subxt(
-	runtime_metadata_insecure_url = "wss://rpc.ibp.network/kusama:443",
+	runtime_metadata_insecure_url = "wss://kusama-rpc.n.dwellir.com:443",
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod kusama_relay {}
@@ -22,7 +22,7 @@ pub(super) use kusama_asset_hub::runtime_types::asset_hub_kusama_runtime::Runtim
 pub mod kusama_bridge_hub {}
 pub(super) use kusama_bridge_hub::runtime_types::bridge_hub_kusama_runtime::RuntimeCall as KusamaBridgeHubRuntimeCall;
 
-#[subxt::subxt(runtime_metadata_insecure_url = "wss://sys.ibp.network/encointer-kusama:443")]
+#[subxt::subxt(runtime_metadata_insecure_url = "wss://encointer-kusama-rpc.n.dwellir.com:443")]
 pub mod kusama_encointer {}
 pub(super) use kusama_encointer::runtime_types::encointer_kusama_runtime::RuntimeCall as KusamaEncointerRuntimeCall;
 
@@ -37,7 +37,7 @@ pub(super) use kusama_coretime::runtime_types::coretime_kusama_runtime::RuntimeC
 // Polkadot Chains ---------------------------------------------------------------------------------
 
 #[subxt::subxt(
-	runtime_metadata_insecure_url = "wss://rpc.ibp.network/polkadot:443",
+	runtime_metadata_insecure_url = "wss://polkadot-rpc.n.dwellir.com:443",
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod polkadot_relay {}
