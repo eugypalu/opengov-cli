@@ -518,4 +518,3 @@ fn it_creates_constrained_print_output() {
 	}
 	assert_eq!(length, proposal_call_info.length);
 }
-
