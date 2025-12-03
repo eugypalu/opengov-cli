@@ -555,16 +555,52 @@ fn extract_flow_data(calls: &PossibleCallsToSubmit) -> (String, String, String, 
 			CallOrHash::Call(network_call) => {
 				let encoded = match network_call {
 					NetworkRuntimeCall::Kusama(call) => {
-						println!("📤 Extracted Kusama preimage call data");
+						println!("📤 Extracted Kusama Relay preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaAssetHub(call) => {
+						println!("📤 Extracted Kusama Asset Hub preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaBridgeHub(call) => {
+						println!("📤 Extracted Kusama Bridge Hub preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaPeople(call) => {
+						println!("📤 Extracted Kusama People preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaCoretime(call) => {
+						println!("📤 Extracted Kusama Coretime preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaEncointer(call) => {
+						println!("📤 Extracted Kusama Encointer preimage call data");
 						format!("0x{}", hex::encode(call.encode()))
 					},
 					NetworkRuntimeCall::Polkadot(call) => {
-						println!("📤 Extracted Polkadot preimage call data");
+						println!("📤 Extracted Polkadot Relay preimage call data");
 						format!("0x{}", hex::encode(call.encode()))
 					},
-					_ => {
-						println!("⚠️  Unsupported network for preimage call");
-						"0x".to_string()
+					NetworkRuntimeCall::PolkadotAssetHub(call) => {
+						println!("📤 Extracted Polkadot Asset Hub preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotCollectives(call) => {
+						println!("📤 Extracted Polkadot Collectives preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotBridgeHub(call) => {
+						println!("📤 Extracted Polkadot Bridge Hub preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotPeople(call) => {
+						println!("📤 Extracted Polkadot People preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotCoretime(call) => {
+						println!("📤 Extracted Polkadot Coretime preimage call data");
+						format!("0x{}", hex::encode(call.encode()))
 					},
 				};
 				println!("Preimage call length: {} bytes", (encoded.len() - 2) / 2);
@@ -597,9 +633,41 @@ fn extract_flow_data(calls: &PossibleCallsToSubmit) -> (String, String, String, 
 						println!("🏛️ Extracted Polkadot Collectives fellowship whitelist call");
 						format!("0x{}", hex::encode(call.encode()))
 					},
-					_ => {
-						println!("⚠️  Unsupported network for whitelist call");
-						"0x".to_string()
+					NetworkRuntimeCall::KusamaAssetHub(call) => {
+						println!("🏛️ Extracted Kusama Asset Hub fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaBridgeHub(call) => {
+						println!("🏛️ Extracted Kusama Bridge Hub fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaPeople(call) => {
+						println!("🏛️ Extracted Kusama People fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaCoretime(call) => {
+						println!("🏛️ Extracted Kusama Coretime fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::KusamaEncointer(call) => {
+						println!("🏛️ Extracted Kusama Encointer fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotAssetHub(call) => {
+						println!("🏛️ Extracted Polkadot Asset Hub fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotBridgeHub(call) => {
+						println!("🏛️ Extracted Polkadot Bridge Hub fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotPeople(call) => {
+						println!("🏛️ Extracted Polkadot People fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
+					},
+					NetworkRuntimeCall::PolkadotCoretime(call) => {
+						println!("🏛️ Extracted Polkadot Coretime fellowship whitelist call");
+						format!("0x{}", hex::encode(call.encode()))
 					},
 				};
 				println!("Whitelist call length: {} bytes", (encoded.len() - 2) / 2);
@@ -622,8 +690,17 @@ fn extract_flow_data(calls: &PossibleCallsToSubmit) -> (String, String, String, 
 				CallOrHash::Call(network_call) => {
 					let encoded = match network_call {
 						NetworkRuntimeCall::Kusama(call) => call.encode(),
+						NetworkRuntimeCall::KusamaAssetHub(call) => call.encode(),
+						NetworkRuntimeCall::KusamaBridgeHub(call) => call.encode(),
+						NetworkRuntimeCall::KusamaPeople(call) => call.encode(),
+						NetworkRuntimeCall::KusamaCoretime(call) => call.encode(),
+						NetworkRuntimeCall::KusamaEncointer(call) => call.encode(),
 						NetworkRuntimeCall::Polkadot(call) => call.encode(),
-						_ => vec![],
+						NetworkRuntimeCall::PolkadotAssetHub(call) => call.encode(),
+						NetworkRuntimeCall::PolkadotCollectives(call) => call.encode(),
+						NetworkRuntimeCall::PolkadotBridgeHub(call) => call.encode(),
+						NetworkRuntimeCall::PolkadotPeople(call) => call.encode(),
+						NetworkRuntimeCall::PolkadotCoretime(call) => call.encode(),
 					};
 					let hash = blake2_256(&encoded);
 					let hash_str = format!("0x{}", hex::encode(hash));

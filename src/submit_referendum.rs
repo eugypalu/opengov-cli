@@ -76,36 +76,36 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 
 	let track = match prefs.network.to_ascii_lowercase().as_str() {
 		"polkadot" => match prefs.track.to_ascii_lowercase().as_str() {
-			"root" => PolkadotRoot,
-			"whitelisted-caller" | "whitelistedcaller" =>
-				Polkadot(PolkadotAssetHubOpenGovOrigin::WhitelistedCaller),
-			"staking-admin" | "stakingadmin" => Polkadot(PolkadotAssetHubOpenGovOrigin::StakingAdmin),
-			"treasurer" => Polkadot(PolkadotAssetHubOpenGovOrigin::Treasurer),
-			"lease-admin" | "leaseadmin" => Polkadot(PolkadotAssetHubOpenGovOrigin::LeaseAdmin),
-			"fellowship-admin" | "fellowshipadmin" =>
-				Polkadot(PolkadotAssetHubOpenGovOrigin::FellowshipAdmin),
-			"general-admin" | "generaladmin" => Polkadot(PolkadotAssetHubOpenGovOrigin::GeneralAdmin),
-			"auction-admin" | "auctionadmin" => Polkadot(PolkadotAssetHubOpenGovOrigin::AuctionAdmin),
-			"referendum-killer" | "referendumkiller" =>
-				Polkadot(PolkadotAssetHubOpenGovOrigin::ReferendumKiller),
-			"referendum-canceller" | "referendumcanceller" =>
-				Polkadot(PolkadotAssetHubOpenGovOrigin::ReferendumCanceller),
+		"root" => PolkadotRoot,
+		"whitelisted-caller" | "whitelistedcaller" =>
+			Polkadot(PolkadotOpenGovOrigin::WhitelistedCaller),
+		"staking-admin" | "stakingadmin" => Polkadot(PolkadotOpenGovOrigin::StakingAdmin),
+		"treasurer" => Polkadot(PolkadotOpenGovOrigin::Treasurer),
+		"lease-admin" | "leaseadmin" => Polkadot(PolkadotOpenGovOrigin::LeaseAdmin),
+		"fellowship-admin" | "fellowshipadmin" =>
+			Polkadot(PolkadotOpenGovOrigin::FellowshipAdmin),
+		"general-admin" | "generaladmin" => Polkadot(PolkadotOpenGovOrigin::GeneralAdmin),
+		"auction-admin" | "auctionadmin" => Polkadot(PolkadotOpenGovOrigin::AuctionAdmin),
+		"referendum-killer" | "referendumkiller" =>
+			Polkadot(PolkadotOpenGovOrigin::ReferendumKiller),
+		"referendum-canceller" | "referendumcanceller" =>
+			Polkadot(PolkadotOpenGovOrigin::ReferendumCanceller),
 			_ => panic!("Unsupported track! Tracks should be in the form `general-admin` or `generaladmin`."),
 		},
 		"kusama" => match prefs.track.to_ascii_lowercase().as_str() {
-			"root" => KusamaRoot,
-			"whitelisted-caller" | "whitelistedcaller" =>
-				Kusama(KusamaAssetHubOpenGovOrigin::WhitelistedCaller),
-			"staking-admin" | "stakingadmin" => Kusama(KusamaAssetHubOpenGovOrigin::StakingAdmin),
-			"treasurer" => Kusama(KusamaAssetHubOpenGovOrigin::Treasurer),
-			"lease-admin" | "leaseadmin" => Kusama(KusamaAssetHubOpenGovOrigin::LeaseAdmin),
-			"fellowship-admin" | "fellowshipadmin" => Kusama(KusamaAssetHubOpenGovOrigin::FellowshipAdmin),
-			"general-admin" | "generaladmin" => Kusama(KusamaAssetHubOpenGovOrigin::GeneralAdmin),
-			"auction-admin" | "auctionadmin" => Kusama(KusamaAssetHubOpenGovOrigin::AuctionAdmin),
-			"referendum-killer" | "referendumkiller" =>
-				Kusama(KusamaAssetHubOpenGovOrigin::ReferendumKiller),
-			"referendum-canceller" | "referendumcanceller" =>
-				Kusama(KusamaAssetHubOpenGovOrigin::ReferendumCanceller),
+		"root" => KusamaRoot,
+		"whitelisted-caller" | "whitelistedcaller" =>
+			Kusama(KusamaOpenGovOrigin::WhitelistedCaller),
+		"staking-admin" | "stakingadmin" => Kusama(KusamaOpenGovOrigin::StakingAdmin),
+		"treasurer" => Kusama(KusamaOpenGovOrigin::Treasurer),
+		"lease-admin" | "leaseadmin" => Kusama(KusamaOpenGovOrigin::LeaseAdmin),
+		"fellowship-admin" | "fellowshipadmin" => Kusama(KusamaOpenGovOrigin::FellowshipAdmin),
+		"general-admin" | "generaladmin" => Kusama(KusamaOpenGovOrigin::GeneralAdmin),
+		"auction-admin" | "auctionadmin" => Kusama(KusamaOpenGovOrigin::AuctionAdmin),
+		"referendum-killer" | "referendumkiller" =>
+			Kusama(KusamaOpenGovOrigin::ReferendumKiller),
+		"referendum-canceller" | "referendumcanceller" =>
+			Kusama(KusamaOpenGovOrigin::ReferendumCanceller),
 			_ => panic!("Unsupported track! Tracks should be in the form `general-admin` or `generaladmin`."),
 		},
 		_ => panic!("`network` must be `polkadot` or `kusama`"),
@@ -154,51 +154,51 @@ fn parse_inputs(prefs: ReferendumArgs) -> ProposalDetails {
 // Generate all the calls needed.
 pub(crate) async fn generate_calls(proposal_details: &ProposalDetails) -> PossibleCallsToSubmit {
 	match &proposal_details.track {
-		// Kusama Root Origin. Since the Root origin is not part of `OpenGovOrigin`, we match it
-		// specially.
-		NetworkTrack::KusamaRoot => {
-			use kusama_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
-			kusama_non_fellowship_referenda(
-				proposal_details,
-				KusamaAssetHubOriginCaller::system(RawOrigin::Root),
-			)
-		},
+	// Kusama Root Origin. Since the Root origin is not part of `OpenGovOrigin`, we match it
+	// specially.
+	NetworkTrack::KusamaRoot => {
+		use kusama_relay::runtime_types::frame_support::dispatch::RawOrigin;
+		kusama_non_fellowship_referenda(
+			proposal_details,
+			KusamaOriginCaller::system(RawOrigin::Root),
+		)
+	},
 
 		// All special Kusama origins.
-		NetworkTrack::Kusama(kusama_track) => {
-			match kusama_track {
-				// Whitelisted calls are special.
-				KusamaAssetHubOpenGovOrigin::WhitelistedCaller =>
-					kusama_fellowship_referenda(proposal_details).await,
+	NetworkTrack::Kusama(kusama_track) => {
+		match kusama_track {
+			// Whitelisted calls are special.
+			KusamaOpenGovOrigin::WhitelistedCaller =>
+				kusama_fellowship_referenda(proposal_details).await,
 
-				// All other Kusama origins.
-				_ => kusama_non_fellowship_referenda(
-					proposal_details,
-					KusamaAssetHubOriginCaller::Origins(kusama_track.clone()),
-				),
+			// All other Kusama origins.
+			_ => kusama_non_fellowship_referenda(
+				proposal_details,
+				KusamaOriginCaller::Origins(kusama_track.clone()),
+			),
 			}
 		},
 
-		// Same for Polkadot Root origin. It is not part of OpenGovOrigins, so it gets its own arm.
-		NetworkTrack::PolkadotRoot => {
-			use polkadot_asset_hub::runtime_types::frame_support::dispatch::RawOrigin;
-			polkadot_non_fellowship_referenda(
-				proposal_details,
-				PolkadotAssetHubOriginCaller::system(RawOrigin::Root),
-			)
-		},
+	// Same for Polkadot Root origin. It is not part of OpenGovOrigins, so it gets its own arm.
+	NetworkTrack::PolkadotRoot => {
+		use polkadot_relay::runtime_types::frame_support::dispatch::RawOrigin;
+		polkadot_non_fellowship_referenda(
+			proposal_details,
+			PolkadotOriginCaller::system(RawOrigin::Root),
+		)
+	},
 
 		// All special Polkadot origins.
-		NetworkTrack::Polkadot(polkadot_track) => {
-			match polkadot_track {
-				PolkadotAssetHubOpenGovOrigin::WhitelistedCaller =>
-					polkadot_fellowship_referenda(proposal_details).await,
+	NetworkTrack::Polkadot(polkadot_track) => {
+		match polkadot_track {
+			PolkadotOpenGovOrigin::WhitelistedCaller =>
+				polkadot_fellowship_referenda(proposal_details).await,
 
-				// All other Polkadot origins.
-				_ => polkadot_non_fellowship_referenda(
-					proposal_details,
-					PolkadotAssetHubOriginCaller::Origins(polkadot_track.clone()),
-				),
+			// All other Polkadot origins.
+			_ => polkadot_non_fellowship_referenda(
+				proposal_details,
+				PolkadotOriginCaller::Origins(polkadot_track.clone()),
+			),
 			}
 		},
 	}
@@ -367,27 +367,27 @@ async fn kusama_fellowship_referenda(proposal_details: &ProposalDetails) -> Poss
 // Generate the calls needed for a proposal to pass on Kusama without the Fellowship.
 fn kusama_non_fellowship_referenda(
 	proposal_details: &ProposalDetails,
-	origin: KusamaAssetHubOriginCaller,
+	origin: KusamaOriginCaller,
 ) -> PossibleCallsToSubmit {
-	use kusama_asset_hub::runtime_types::{
+	use kusama_relay::runtime_types::{
 		frame_support::traits::{preimages::Bounded::Lookup, schedule::DispatchTime},
 		pallet_preimage::pallet::Call as PreimageCall,
 		pallet_referenda::pallet::Call as ReferendaCall,
 	};
 
 	let proposal_bytes = get_proposal_bytes(proposal_details.proposal.clone());
-	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::KusamaAssetHub);
+	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::Kusama);
 
 	let public_referendum_dispatch_time = match proposal_details.dispatch {
 		DispatchTimeWrapper::At(block) => DispatchTime::At(block),
 		DispatchTimeWrapper::After(block) => DispatchTime::After(block),
 	};
 
-	let note_proposal_preimage = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
-		KusamaAssetHubRuntimeCall::Preimage(PreimageCall::note_preimage { bytes: proposal_bytes }),
+	let note_proposal_preimage = CallInfo::from_runtime_call(NetworkRuntimeCall::Kusama(
+		KusamaRuntimeCall::Preimage(PreimageCall::note_preimage { bytes: proposal_bytes }),
 	));
-	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::KusamaAssetHub(
-		KusamaAssetHubRuntimeCall::Referenda(ReferendaCall::submit {
+	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::Kusama(
+		KusamaRuntimeCall::Referenda(ReferendaCall::submit {
 			proposal_origin: Box::new(origin),
 			proposal: Lookup {
 				hash: H256(proposal_call_info.hash),
@@ -403,8 +403,8 @@ fn kusama_non_fellowship_referenda(
 		preimage_for_whitelist_call: None,
 		preimage_for_public_referendum: Some((preimage_print, preimage_print_len)),
 		fellowship_referendum_submission: None,
-		public_referendum_submission: Some(NetworkRuntimeCall::KusamaAssetHub(
-			public_proposal.get_kusama_asset_hub_call().expect("kusama asset hub"),
+		public_referendum_submission: Some(NetworkRuntimeCall::Kusama(
+			public_proposal.get_kusama_call().expect("kusama"),
 		)),
 	}
 }
@@ -598,29 +598,29 @@ async fn polkadot_fellowship_referenda(
 // Generate the calls needed for a proposal to pass on Polkadot without the Fellowship.
 fn polkadot_non_fellowship_referenda(
 	proposal_details: &ProposalDetails,
-	origin: PolkadotAssetHubOriginCaller,
+	origin: PolkadotOriginCaller,
 ) -> PossibleCallsToSubmit {
-	use polkadot_asset_hub::runtime_types::{
+	use polkadot_relay::runtime_types::{
 		frame_support::traits::{preimages::Bounded::Lookup, schedule::DispatchTime},
 		pallet_preimage::pallet::Call as PreimageCall,
 		pallet_referenda::pallet::Call as ReferendaCall,
 	};
 
 	let proposal_bytes = get_proposal_bytes(proposal_details.proposal.clone());
-	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::PolkadotAssetHub);
+	let proposal_call_info = CallInfo::from_bytes(&proposal_bytes, Network::Polkadot);
 
 	let public_referendum_dispatch_time = match proposal_details.dispatch {
 		DispatchTimeWrapper::At(block) => DispatchTime::At(block),
 		DispatchTimeWrapper::After(block) => DispatchTime::After(block),
 	};
 
-	let note_proposal_preimage = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
-		PolkadotAssetHubRuntimeCall::Preimage(PreimageCall::note_preimage {
+	let note_proposal_preimage = CallInfo::from_runtime_call(NetworkRuntimeCall::Polkadot(
+		PolkadotRuntimeCall::Preimage(PreimageCall::note_preimage {
 			bytes: proposal_bytes,
 		}),
 	));
-	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::PolkadotAssetHub(
-		PolkadotAssetHubRuntimeCall::Referenda(ReferendaCall::submit {
+	let public_proposal = CallInfo::from_runtime_call(NetworkRuntimeCall::Polkadot(
+		PolkadotRuntimeCall::Referenda(ReferendaCall::submit {
 			proposal_origin: Box::new(origin),
 			proposal: Lookup {
 				hash: H256(proposal_call_info.hash),
@@ -636,8 +636,8 @@ fn polkadot_non_fellowship_referenda(
 		preimage_for_whitelist_call: None,
 		preimage_for_public_referendum: Some((preimage_print, preimage_print_len)),
 		fellowship_referendum_submission: None,
-		public_referendum_submission: Some(NetworkRuntimeCall::PolkadotAssetHub(
-			public_proposal.get_polkadot_asset_hub_call().expect("polkadot asset hub"),
+		public_referendum_submission: Some(NetworkRuntimeCall::Polkadot(
+			public_proposal.get_polkadot_call().expect("polkadot"),
 		)),
 	}
 }

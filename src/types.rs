@@ -47,7 +47,10 @@ pub(super) use kusama_coretime::runtime_types::coretime_kusama_runtime::RuntimeC
 	derive_for_all_types = "PartialEq, Clone"
 )]
 pub mod polkadot_relay {}
-pub(super) use polkadot_relay::runtime_types::polkadot_runtime::RuntimeCall as PolkadotRuntimeCall;
+pub(super) use polkadot_relay::runtime_types::polkadot_runtime::{
+	governance::origins::pallet_custom_origins::Origin as PolkadotOpenGovOrigin,
+	OriginCaller as PolkadotOriginCaller, RuntimeCall as PolkadotRuntimeCall,
+};
 
 #[subxt::subxt(
 	runtime_metadata_path = "metadata/polkadot_asset_hub.scale",
@@ -163,9 +166,9 @@ pub(super) struct VersionedNetwork {
 // The network and OpenGov track this proposal should be voted on.
 pub(super) enum NetworkTrack {
 	KusamaRoot,
-	Kusama(KusamaAssetHubOpenGovOrigin),
+	Kusama(KusamaOpenGovOrigin),
 	PolkadotRoot,
-	Polkadot(PolkadotAssetHubOpenGovOrigin),
+	Polkadot(PolkadotOpenGovOrigin),
 }
 
 // A runtime call wrapped in the network it should execute on.
